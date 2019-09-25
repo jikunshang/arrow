@@ -61,10 +61,11 @@ class TestPlasmaStoreAEP : public ::testing::Test {
 
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
-    std::string plasma_command =
-        plasma_directory + "/plasma-store-server -m 400000000000 -s " + store_socket_name_ + " -d /mnt/pmem0/plasma/" +
-        //" 1> /dev/null 2> /dev/null  " + 
-        " & " + "echo $! > " + store_socket_name_ + ".pid";
+    std::string plasma_command = plasma_directory +
+                                 "/plasma-store-server -m 400000000000 -s " +
+                                 store_socket_name_ + " -d /mnt/pmem0/plasma/" +
+                                 //" 1> /dev/null 2> /dev/null  " +
+                                 " & " + "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ARROW_CHECK_OK(client_.Connect(store_socket_name_, ""));
     ARROW_CHECK_OK(client2_.Connect(store_socket_name_, ""));
@@ -111,7 +112,7 @@ class TestPlasmaStoreAEP : public ::testing::Test {
 
 TEST_F(TestPlasmaStoreAEP, SingleThreadBenchMark) {
   // create 1 client and create 100 large objects (2GB per object)
-  std::vector<ObjectID> obejct_ids(100);
+  std::vector<ObjectID> object_ids(100);
   std::vector<std::shared_ptr<Buffer>> data_buffers;
   std::chrono::duration<double> time_;
   auto client = std::make_shared<PlasmaClient>();
@@ -120,7 +121,7 @@ TEST_F(TestPlasmaStoreAEP, SingleThreadBenchMark) {
 
   // create 10 objects
   auto tic = std::chrono::steady_clock::now();
-  int64_t data_size = 2 * 1024 * 1024 * 1024;
+  int64_t data_size = (int64_t)2 * 1024 * 1024 * 1024;
   uint8_t metadata[] = {5};
   int64_t metadata_size = sizeof(metadata);
   for (int i = 0; i < 100; i++) {
@@ -136,7 +137,7 @@ TEST_F(TestPlasmaStoreAEP, SingleThreadBenchMark) {
   std::cout << "Create time: " << time_.count() << " ms" << std::endl;
 
   uint8_t* origin_buffer = (uint8_t*)malloc(data_size);
-  for (uint64_t i = 0; i < data_size; i++) origin_buffer[i] = i % 256;
+  for (int64_t i = 0; i < data_size; i++) origin_buffer[i] = i % 256;
   // write data to objects
   tic = std::chrono::steady_clock::now();
   for (auto data : data_buffers) memcpy(data->mutable_data(), origin_buffer, data_size);
@@ -146,31 +147,31 @@ TEST_F(TestPlasmaStoreAEP, SingleThreadBenchMark) {
 
   // seal objects
   tic = std::chrono::steady_clock::now();
-  for (auto object_id : obejct_ids) ARROW_CHECK_OK(client->Seal(object_id));
+  for (auto object_id : object_ids) ARROW_CHECK_OK(client->Seal(object_id));
   toc = std::chrono::steady_clock::now();
   time_ = toc - tic;
   std::cout << "Seal time: " << time_.count() << " ms" << std::endl;
 
-  ARROW_CHECK_OK(client2->Connect(store_socket_name_, "");
+  ARROW_CHECK_OK(client2->Connect(store_socket_name_, ""));
   std::vector<ObjectBuffer> get_objects;
-  //client2 get objects  
-   tic = std::chrono::steady_clock::now();
-  for(auto object_id : obejct_ids)
-  {
-    ObjectBuffer obj_buf;
-    client2->Get({object_id}, -1, &{obj_buf});
-    get_objects.push_back(obj_buf);
-  }
-       toc  = std::chrono::steady_clock::now();
+  // client2 get objects
+  tic = std::chrono::steady_clock::now();
+  client2->Get(object_ids, -1, &get_objects);
+  //  for(auto object_id : object_ids)
+  //  {
+  //    ObjectBuffer obj_buf;
+  //    client2->Get(object_id,1, -1, &obj_buf);
+  //    get_objects.push_back(obj_buf);
+  //  }
+  toc = std::chrono::steady_clock::now();
   time_ = toc - tic;
   std::cout << "Get time: " << time_.count() << " ms" << std::endl;
 
-
-  //compare to origin buffer
-   tic = std::chrono::steady_clock::now();
-  for( auto get_object : get_objects)
-  memcmp(get_object.data->data(), origin_buffer, data_size);
-       toc  = std::chrono::steady_clock::now();
+  // compare to origin buffer
+  tic = std::chrono::steady_clock::now();
+  for (auto get_object : get_objects)
+    ASSERT_EQ(memcmp(get_object.data->data(), origin_buffer, data_size), 0);
+  toc = std::chrono::steady_clock::now();
   time_ = toc - tic;
   std::cout << "compare time: " << time_.count() << " ms" << std::endl;
 
@@ -179,7 +180,58 @@ TEST_F(TestPlasmaStoreAEP, SingleThreadBenchMark) {
 }
 
 TEST_F(TestPlasmaStoreAEP, MultiThreadBenchMark) {
-  // create 16 thread and create 10 huge objects
+  // create 16 thread and create 10 huge objects, 2GB for each
+  // write join read
+  int thread_nums = 16;
+  int objects_per_thread = 10;
+  std::vector<ObjectID> object_Ids(thread_nums * objects_per_thread);
+  for( int i=0;i<object_Ids.size(); i++)
+    object_Ids[i] = random_object_id();
+  std::vector<std::shared_ptr<PlasmaClient>> clients;
+  for (int i = 0; i < thread_nums; i++) {
+    auto client_ = std::make_shared<PlasmaClient>();
+    clients.push_back(client_);
+  }
+
+  std::chrono::duration<double> time_;
+
+
+  // 1.create objects
+  auto tic = std::chrono::steady_clock::now();
+
+  auto toc = std::chrono::steady_clock::now();
+  time_ = toc -tic;
+  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
+
+
+  // 2. create 
+  tic = std::chrono::steady_clock::now();
+
+  toc = std::chrono::steady_clock::now();
+  time_ = toc -tic;
+  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
+
+  // 3. seal object
+  tic = std::chrono::steady_clock::now();
+
+  toc = std::chrono::steady_clock::now();
+  time_ = toc -tic;
+  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
+  
+  
+  // 4. get and read time
+  tic = std::chrono::steady_clock::now();
+
+  toc = std::chrono::steady_clock::now();
+  time_ = toc -tic;
+  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
+
 }
 
 }  // namespace plasma
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  plasma::test_executable = std::string(argv[0]);
+  return RUN_ALL_TESTS();
+}
