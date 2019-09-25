@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Compiled and debug folder
+cpp/debug
+java/format/bin
+
 apache-rat-*.jar
 arrow-src.tar
 arrow-src.tar.gz

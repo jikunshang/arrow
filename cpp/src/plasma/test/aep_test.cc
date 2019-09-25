@@ -103,6 +103,81 @@ class TestPlasmaStoreAEP : public ::testing::Test {
     }
   }
 
+  static void write_thread(std::vector<std::shared_ptr<PlasmaClient>> clients,
+                           std::vector<ObjectID> object_ids, int thread_id,
+                           int thread_nums, int objects_per_thread, int64_t data_size) {
+    std::chrono::duration<double> time_;
+
+    uint8_t* origin_buffer = (uint8_t*)malloc(data_size);
+    for (int64_t i = 0; i < data_size; i++) {
+      origin_buffer[i] = i % 256;
+    }
+    std::shared_ptr<PlasmaClient> client = clients[thread_id];
+    std::vector<std::shared_ptr<Buffer>> data_buffers;
+    int objStart = ((thread_id + 1) % thread_id) * objects_per_thread;
+    // int objStop = objStart + objects_per_thread - 1;
+    std::vector<ObjectID> object_ids_create;
+    for (int i = 0; i < objects_per_thread; i++)
+      object_ids_create.push_back(object_ids[objStart + i]);
+    // start
+    auto tic = std::chrono::steady_clock::now();
+    for (auto object_id : object_ids_create) {
+      std::shared_ptr<Buffer> data_buffer;
+      ARROW_CHECK_OK(client->Create(object_id, data_size, nullptr, 0, &data_buffer));
+      data_buffers.push_back(data_buffer);
+    }
+
+    for (auto data_buffer : data_buffers) {
+      memcpy(data_buffer->mutable_data(), origin_buffer, data_size);
+    }
+
+    auto toc = std::chrono::steady_clock::now();
+    time_ = toc - tic;
+    std::cout << "Thread id : " << thread_id << "  write time: " << time_.count() << " s."
+              << std::endl;
+
+    // seal
+    tic = std::chrono::steady_clock::now();
+    for (auto object_id : object_ids_create) {
+      ARROW_CHECK_OK(client->Seal(object_id));
+    }
+    toc = std::chrono::steady_clock::now();
+    time_ = toc - tic;
+    std::cout << "Thread id : " << thread_id << "  seal time: " << time_.count() << " s."
+              << std::endl;
+  }
+
+  static void read_thread(std::vector<std::shared_ptr<PlasmaClient>> clients,
+                          std::vector<ObjectID> object_ids, int thread_id,
+                          int thread_nums, int objects_per_thread, int64_t data_size) {
+    std::chrono::duration<double> time_;
+
+    uint8_t* origin_buffer = (uint8_t*)malloc(data_size);
+    for (int64_t i = 0; i < data_size; i++) {
+      origin_buffer[i] = i % 256;
+    }
+    std::shared_ptr<PlasmaClient> client = clients[thread_id];
+    std::vector<std::shared_ptr<Buffer>> data_buffers;
+    int objStart = thread_id * objects_per_thread;
+    // int objStop = objStart + objects_per_thread - 1;
+    std::vector<ObjectID> object_ids_get;
+    for (int i = 0; i < objects_per_thread; i++)
+      object_ids_get.push_back(object_ids[objStart + i]);
+    std::vector<ObjectBuffer> get_objects;
+    // start
+    auto tic = std::chrono::steady_clock::now();
+    ARROW_CHECK_OK(client->Get(object_ids_get, -1, &get_objects));
+
+    for (auto get_object : get_objects) {
+      ASSERT_EQ(memcmp(get_object.data->data(), origin_buffer, data_size), 0);
+    }
+
+    auto toc = std::chrono::steady_clock::now();
+    time_ = toc - tic;
+    std::cout << "Thread id : " << thread_id << " get and compare time: " << time_.count()
+              << " s." << std::endl;
+  }
+
  protected:
   PlasmaClient client_;
   PlasmaClient client2_;
@@ -185,47 +260,32 @@ TEST_F(TestPlasmaStoreAEP, MultiThreadBenchMark) {
   int thread_nums = 16;
   int objects_per_thread = 10;
   std::vector<ObjectID> object_Ids(thread_nums * objects_per_thread);
-  for( int i=0;i<object_Ids.size(); i++)
+  for (long unsigned int i = 0; i < object_Ids.size(); i++)
     object_Ids[i] = random_object_id();
   std::vector<std::shared_ptr<PlasmaClient>> clients;
   for (int i = 0; i < thread_nums; i++) {
     auto client_ = std::make_shared<PlasmaClient>();
     clients.push_back(client_);
   }
+  int64_t data_size = (int64_t)2 * 1024 * 1024 * 1024;
+  std::vector<std::thread> threads(thread_nums);
 
-  std::chrono::duration<double> time_;
+  std::cout << "Start create and write" << std::endl;
 
+  for (int i = 0; i < thread_nums; i++) {
+    threads[i] = std::thread(&TestPlasmaStoreAEP::write_thread, clients, object_Ids, i,
+                             thread_nums, objects_per_thread, data_size);
+  }
 
-  // 1.create objects
-  auto tic = std::chrono::steady_clock::now();
+  for (int i = 0; i < thread_nums; i++) threads[i].join();
 
-  auto toc = std::chrono::steady_clock::now();
-  time_ = toc -tic;
-  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
+  std::cout << std::endl << "Start read" << std::endl;
+  for (int i = 0; i < thread_nums; i++) {
+    threads[i] = std::thread(&TestPlasmaStoreAEP::read_thread, clients, object_Ids, i,
+                             thread_nums, objects_per_thread, data_size);
+  }
 
-
-  // 2. create 
-  tic = std::chrono::steady_clock::now();
-
-  toc = std::chrono::steady_clock::now();
-  time_ = toc -tic;
-  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
-
-  // 3. seal object
-  tic = std::chrono::steady_clock::now();
-
-  toc = std::chrono::steady_clock::now();
-  time_ = toc -tic;
-  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
-  
-  
-  // 4. get and read time
-  tic = std::chrono::steady_clock::now();
-
-  toc = std::chrono::steady_clock::now();
-  time_ = toc -tic;
-  std::cout<< "XX time: "<< time_.count() << " s."<<std::endl;
-
+  for (int i = 0; i < thread_nums; i++) threads[i].join();
 }
 
 }  // namespace plasma
