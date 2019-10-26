@@ -150,14 +150,14 @@ endif()
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc" "vmemcache_store.cc")
 link_libraries(vmemcache numa)
 
-# We use static libraries for the plasma_store_server executable so that it can
+# We use static libraries for the plasma-store-server executable so that it can
 # be copied around and used in different locations.
 add_executable(plasma-store-server ${PLASMA_EXTERNAL_STORE_SOURCES} ${PLASMA_STORE_SRCS})
 if(ARROW_BUILD_STATIC)
-  target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+  target_link_libraries(plasma-store-server plasma_static ${PLASMA_STATIC_LINK_LIBS})
 else()
   # Fallback to shared libs in the case that static libraries are not build.
-  target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
+  target_link_libraries(plasma-store-server plasma_shared ${PLASMA_LINK_LIBS})
 endif()
 
 add_dependencies(plasma plasma-store-server)
@@ -167,7 +167,7 @@ if(ARROW_RPATH_ORIGIN)
   else()
     set(_lib_install_rpath "\$ORIGIN")
   endif()
-  set_target_properties(plasma_store_server
+  set_target_properties(plasma-store-server
                         PROPERTIES INSTALL_RPATH ${_lib_install_rpath})
 elseif(APPLE)
   # With OSX and conda, we need to set the correct RPATH so that dependencies
@@ -176,7 +176,7 @@ elseif(APPLE)
   # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
   # installed there.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
-    set_target_properties(plasma_store_server
+    set_target_properties(plasma-store-server
                           PROPERTIES BUILD_WITH_INSTALL_RPATH
                                      TRUE
                                      INSTALL_RPATH_USE_LINK_PATH
@@ -194,8 +194,8 @@ install(FILES common.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store
-set_target_properties(plasma_store_server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma_store_server ${INSTALL_IS_OPTIONAL} DESTINATION
+set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL} DESTINATION
                 ${CMAKE_INSTALL_BINDIR})
 
 if(ARROW_PLASMA_JAVA_CLIENT)
@@ -279,7 +279,7 @@ add_plasma_test(test/client_tests
                 EXTRA_LINK_LIBS
                 ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES
-                plasma_store_server)
+                plasma-store-server)
 add_plasma_test(test/external_store_tests
                 EXTRA_LINK_LIBS
                 ${PLASMA_TEST_LIBS}
