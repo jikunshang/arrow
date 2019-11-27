@@ -860,10 +860,17 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
 
   object_entry->second->is_sealed = true;
   /// Send the seal request to Plasma.
+<<<<<<< HEAD
   std::vector<uint8_t> digest(kDigestSize);
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
   RETURN_NOT_OK(
       SendSealRequest(store_conn_, object_id, std::string(digest.begin(), digest.end())));
+=======
+  static unsigned char digest[kDigestSize];
+  memset(&digest[0], 1, sizeof(int64_t));
+//  RETURN_NOT_OK(Hash(object_id, &digest[0]));
+  RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, &digest[0]));
+>>>>>>> 913daa3e0... add a jni api getByteBuffer and remove hash when call get, it have some benefit to DCPMM
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment

@@ -110,6 +110,18 @@ public class PlasmaClient implements ObjectStoreLink {
     return PlasmaClientJNI.evict(conn, numBytes);
   }
 
+  public ByteBuffer create(byte[] objectId, int length)
+          throws DuplicateObjectException, PlasmaOutOfMemoryException {
+    ByteBuffer buf = PlasmaClientJNI.create(conn, objectId, length, null);
+    return buf;
+  }
+
+  public ByteBuffer getByteBuffer(byte[] objectId, int timeoutMs, boolean isMetadata) {
+    byte[][] objectIds = new byte[][]{objectId};
+    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
+    return bufs[0][isMetadata ? 1 : 0];
+  }
+
   // wrapper methods --------------------
 
   /**
