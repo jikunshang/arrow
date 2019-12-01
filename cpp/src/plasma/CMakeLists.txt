@@ -108,7 +108,8 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
   set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
-list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc")
+list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc" "vmemcache_store.cc")
+link_libraries(vmemcache)
 
 # We use static libraries for the plasma-store-server executable so that it can
 # be copied around and used in different locations.
@@ -192,7 +193,8 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           "-undefined dynamic_lookup"
                           -Wl,-force_load,flatbuffers::flatbuffers
                           flatbuffers::flatbuffers
-                          ${PTHREAD_LIBRARY})
+                          ${PTHREAD_LIBRARY}
+                          vmemcache)
   else(APPLE)
     target_link_libraries(plasma_java
                           plasma_shared
@@ -201,7 +203,8 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           flatbuffers::flatbuffers
                           -Wl,--no-whole-archive
                           flatbuffers::flatbuffers
-                          ${PTHREAD_LIBRARY})
+                          ${PTHREAD_LIBRARY}
+                          vmemcache)
   endif(APPLE)
 endif()
 #
@@ -239,6 +242,11 @@ add_plasma_test(test/client_tests
                 EXTRA_DEPENDENCIES
                 plasma-store-server)
 add_plasma_test(test/external_store_tests
+                EXTRA_LINK_LIBS
+                ${PLASMA_TEST_LIBS}
+                EXTRA_DEPENDENCIES
+                plasma-store-server)
+add_plasma_test(test/vmemcache_store_tests  
                 EXTRA_LINK_LIBS
                 ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES

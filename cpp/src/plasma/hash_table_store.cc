@@ -26,6 +26,8 @@ namespace plasma {
 
 Status HashTableStore::Connect(const std::string& endpoint) { return Status::OK(); }
 
+Status HashTableStore::Exist(ObjectID id) { return Status::OK(); }
+
 Status HashTableStore::Put(const std::vector<ObjectID>& ids,
                            const std::vector<std::shared_ptr<Buffer>>& data) {
   for (size_t i = 0; i < ids.size(); ++i) {

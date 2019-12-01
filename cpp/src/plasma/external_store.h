@@ -73,6 +73,14 @@ class ExternalStore {
   /// \return The return status.
   virtual Status Get(const std::vector<ObjectID>& ids,
                      std::vector<std::shared_ptr<Buffer>> buffers) = 0;
+
+  /// This method will be called when check an evicted object whether still 
+  /// in the external store.
+  /// This API is experimental and might change in the future.
+  ///
+  /// \param id The ID of the objects to get.
+  /// \return The return status.
+  virtual Status Exist(ObjectID id) = 0;
 };
 
 class ExternalStores {

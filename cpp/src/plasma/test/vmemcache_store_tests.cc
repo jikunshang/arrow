@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <thread>
+#include <chrono>
 
 #include <gtest/gtest.h>
 
@@ -49,7 +50,7 @@ void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
-class TestPlasmaStoreWithExternal : public ::testing::Test {
+class TestPlasmaStoreWithExternalVmem : public ::testing::Test {
  public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
@@ -61,7 +62,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
         external_test_executable.substr(0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
                                  "/plasma-store-server -m 1024000 -e " +
-                                 "hashtable://test -s " + store_socket_name_ +
+                                 "vmemcache://test -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
@@ -70,9 +71,9 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
 
   void TearDown() override {
     ARROW_CHECK_OK(client_.Disconnect());
-    // Kill plasma_store process that we started
+    // Kill plasma_store process that we starteds
 #ifdef COVERAGE_BUILD
-    // Ask plasma_store to emetadataxit gracefully and give it time to write out
+    // Ask plasma_store to exit gracefully and give it time to write out
     // coverage files
     std::string plasma_term_command =
         "kill -TERM `cat " + store_socket_name_ + ".pid` || exit 0";
@@ -90,14 +91,15 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   std::string store_socket_name_;
 };
 
-TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
+TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
   std::vector<ObjectID> object_ids;
   std::string data(100 * 1024, 'x');
   std::string metadata;
-  for (int i = 0; i < 20; i++) {
+  for (int i = 0; i < 12; i++) {
     ObjectID object_id = random_object_id();
+    
     object_ids.push_back(object_id);
-
+    fprintf(stderr, "id ptr %p\n", object_id.data());
     // Test for object non-existence.
     bool has_object;
     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
@@ -109,14 +111,16 @@ TEST_F(TestPlasmaStoreWithExternal, EvictionTest) {
     // Test that the client can get the object.
     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
     ASSERT_TRUE(has_object);
+    std::cerr << "this is " << i << "put" << std::endl;
   }
-
-  for (int i = 0; i < 20; i++) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  for (int i = 1; i < 12; i++) {
     // Since we are accessing objects sequentially, every object we
     // access would be a cache "miss" owing to LRU eviction.
     // Try and access the object from the plasma store first, and then try
     // external store on failure. This should succeed to fetch the object.
     // However, it may evict the next few objects.
+    std::cerr << "this is " << i << "get" << std::endl;
     std::vector<ObjectBuffer> object_buffers;
     ARROW_CHECK_OK(client_.Get({object_ids[i]}, -1, &object_buffers));
     ASSERT_EQ(object_buffers.size(), 1);

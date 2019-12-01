@@ -15,24 +15,59 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef HASH_TABLE_STORE_H
-#define HASH_TABLE_STORE_H
-
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#ifndef VMEMCACHE_STORE_H
+#define VMEMCACHE_STORE_H
 
 #include "plasma/external_store.h"
+#include "plasma/threadPool.h"
+
+#include <libvmemcache.h>
+
+#include <vector>
 
 namespace plasma {
 
-// This is a sample implementation for an external store, for illustration
-// purposes only.
+struct putParam {
+  VMEMcache* cache;
+  void* key;
+  size_t keySize;
+  void* value;
+  size_t valueSize;
+  putParam(VMEMcache* cache_, void* key_, size_t keySize_, void* value_,
+           size_t valueSize_) {
+    cache = cache_;
+    key = key_;
+    keySize = keySize_;
+    value = value_;
+    valueSize = valueSize_;
+  }
+};
 
-class HashTableStore : public ExternalStore {
+struct getParam {
+  VMEMcache* cache;
+  const void* key;
+  size_t key_size;
+  void* vbuf;
+  size_t vbufsize;
+  size_t offset;
+  size_t* vsize;
+
+  getParam(VMEMcache* cache_, const void* key_, size_t key_size_, void* vbuf_,
+           size_t vbufsize_, size_t offset_ ) {
+    cache = cache_;
+    key = key_;
+    key_size = key_size_;
+    vbuf = vbuf_;
+    vbufsize = vbufsize_;
+    offset = offset_;
+    size_t valueSize;
+    vsize = &valueSize;
+  }
+};
+
+class VmemcacheStore : public ExternalStore {
  public:
-  HashTableStore() = default;
+  VmemcacheStore() = default;
 
   Status Connect(const std::string& endpoint) override;
 
@@ -45,11 +80,11 @@ class HashTableStore : public ExternalStore {
   Status Exist(ObjectID id) override;
 
  private:
-  typedef std::unordered_map<ObjectID, std::string> HashTable;
-
-  HashTable table_;
+  std::vector<VMEMcache*> caches;
+  std::vector<std::shared_ptr<WorkerThread>> threads;
+  int totalNumaNodes = 1;
 };
 
 }  // namespace plasma
 
-#endif  // HASH_TABLE_STORE_H
+#endif

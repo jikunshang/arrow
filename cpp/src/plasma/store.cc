@@ -455,6 +455,24 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // Make sure the object pointer is not already allocated
       ARROW_CHECK(!entry->pointer);
 
+      if (!external_store_->Exist(object_id).ok()) {
+        ARROW_LOG(DEBUG) << "object id " << object_id.hex()
+                         << " is not exist in external store";
+        // external store doesn't contains this object, we will set a placeholder
+        // to indicate this object is nolonger present
+        get_req->objects[object_id].data_size = -1;
+        // Add the get request to the relevant data structures.
+        object_get_requests_[object_id].push_back(get_req);
+
+        EraseFromObjectTable(object_id);
+        // Inform all subscribers that the object has been deleted.
+        fb::ObjectInfoT notification;
+        notification.object_id = object_id.binary();
+        notification.is_deletion = true;
+        PushNotification(&notification);
+        continue;
+      }
+
       entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
                                       &entry->map_size, &entry->offset, client, false);
       if (entry->pointer) {
@@ -469,6 +487,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
         // Change the state of the object back to PLASMA_EVICTED so some
         // other request can try again.
         entry->state = ObjectState::PLASMA_EVICTED;
+        // will have some bug ?
       }
     } else {
       // Add a placeholder plasma object to the get request to indicate that the
@@ -488,6 +507,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       buffers.emplace_back(new arrow::MutableBuffer(evicted_entries[i]->pointer,
                                                     evicted_entries[i]->data_size));
     }
+    //
     if (external_store_->Get(evicted_ids, buffers).ok()) {
       for (size_t i = 0; i < evicted_ids.size(); ++i) {
         evicted_entries[i]->state = ObjectState::PLASMA_SEALED;
@@ -498,6 +518,8 @@ void PlasmaStore::ProcessGetRequest(Client* client,
         get_req->num_satisfied += 1;
       }
     } else {
+      // todo: We should remove this object
+
       // We tried to get the objects from the external store, but could not get them.
       // Set the state of these objects back to PLASMA_EVICTED so some other request
       // can try again.
@@ -573,6 +595,17 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
 // Check if an object is present.
 ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
+  if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
+    if (!external_store_->Exist(object_id).ok()) {
+      EraseFromObjectTable(object_id);
+      // Inform all subscribers that the object has been deleted.
+      fb::ObjectInfoT notification;
+      notification.object_id = object_id.binary();
+      notification.is_deletion = true;
+      PushNotification(&notification);
+      return ObjectStatus::OBJECT_NOT_FOUND;
+    }
+  }
   return entry && (entry->state == ObjectState::PLASMA_SEALED ||
                    entry->state == ObjectState::PLASMA_EVICTED)
              ? ObjectStatus::OBJECT_FOUND
@@ -1194,7 +1227,7 @@ void StartServer(char* socket_name, std::string plasma_directory, bool hugepages
 }  // namespace plasma
 
 int main(int argc, char* argv[]) {
-  ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_INFO);
+  ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_DEBUG);
   ArrowLog::InstallFailureSignalHandler();
   char* socket_name = nullptr;
   // Directory where plasma memory mapped files are stored.
