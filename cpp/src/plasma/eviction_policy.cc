@@ -80,6 +80,7 @@ int64_t LRUCache::ChooseObjectsToEvict(int64_t num_bytes_required,
                                        std::vector<ObjectID>* objects_to_evict) {
   int64_t bytes_evicted = 0;
   auto it = item_list_.end();
+  ARROW_LOG(DEBUG) << "have "<<item_list_.size() << " obejcts.";
   while (bytes_evicted < num_bytes_required && it != item_list_.begin()) {
     it--;
     objects_to_evict->push_back(it->first);
@@ -97,6 +98,7 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
                                              std::vector<ObjectID>* objects_to_evict) {
   int64_t bytes_evicted =
       cache_.ChooseObjectsToEvict(num_bytes_required, objects_to_evict);
+  ARROW_LOG(DEBUG) << DebugString();
   // Update the LRU cache.
   for (auto& object_id : *objects_to_evict) {
     cache_.Remove(object_id);

@@ -18,134 +18,190 @@
 #include <memory>
 #include <string>
 
+#include <stdlib.h>
+
 #include "arrow/util/logging.h"
 
-#include <libvmemcache.h>
 #include "plasma/vmemcache_store.h"
+#include <libvmemcache.h>
 
 //#define CACHE_MAX_SIZE (462 * 1024 * 1024 * 1024L)
-#define CACHE_MAX_SIZE (100 * 1024 * 1024L)
+#define CACHE_MAX_SIZE (450 * 1024 * 1024 * 1024L)
 #define CACHE_EXTENT_SIZE 512
 
 namespace plasma {
 
 // Connect here is like something initial
-Status VmemcacheStore::Connect(const std::string& endpoint) {
+Status VmemcacheStore::Connect(const std::string &endpoint) {
   for (int i = 0; i < totalNumaNodes; i++) {
     // initial vmemcache on numa node i
-    VMEMcache* cache = vmemcache_new();
+    VMEMcache *cache = vmemcache_new();
     if (!cache) {
       ARROW_LOG(FATAL) << "Initial vmemcache failed!";
       return Status::UnknownError("Initial vmemcache failed!");
     }
     // TODO: how to find path and bind numa?
     std::string s = "/mnt/pmem" + std::to_string(i);
-    if (vmemcache_add(cache, s.c_str())) ARROW_LOG(FATAL) << "Initial vmemcache failed!";
-    vmemcache_set_extent_size(cache, CACHE_EXTENT_SIZE);
-    vmemcache_set_size(cache, CACHE_MAX_SIZE);
+    ARROW_LOG(DEBUG) << "initial vmemcache on " << s << ", size"
+                     << CACHE_MAX_SIZE << ", extent size" << CACHE_EXTENT_SIZE;
+
+    if (vmemcache_set_size(cache, CACHE_MAX_SIZE)) {
+      ARROW_LOG(DEBUG) << "vmemcache_set_size error:" << vmemcache_errormsg();
+      ARROW_LOG(FATAL) << "vmemcache_set_size failed!";
+    }
+
+    if (vmemcache_set_extent_size(cache, CACHE_EXTENT_SIZE)) {
+      ARROW_LOG(DEBUG) << "vmemcache_set_extent_size error:"
+                       << vmemcache_errormsg();
+      ARROW_LOG(FATAL) << "vmemcache_set_extent_size failed!";
+    }
+
+    if (vmemcache_add(cache, s.c_str()))
+      ARROW_LOG(FATAL) << "Initial vmemcache failed!";
+
     caches.push_back(cache);
 
-    // initial worker thread on numa node i
-    // get a coreID on numa node i
-    int coreId = i;
-    std::shared_ptr<WorkerThread> thread(new WorkerThread(coreId));
-    threads.push_back(thread);
+    std::shared_ptr<ThreadPool> pool(new ThreadPool(i, threadInPools));
+    threadPools.push_back(pool);
+
     ARROW_LOG(DEBUG) << "initial vmemcache success!";
+
+    srand((unsigned int)time(NULL));
   }
 
   return Status::OK();
 }
 
 // maintain a thread-pool conatins all numa node threads
-Status VmemcacheStore::Put(const std::vector<ObjectID>& ids,
-                           const std::vector<std::shared_ptr<Buffer>>& data) {
-  ARROW_LOG(DEBUG) << "call Put";
-  auto total = ids.size();
+Status VmemcacheStore::Put(const std::vector<ObjectID> &ids,
+                           const std::vector<std::shared_ptr<Buffer>> &data) {
+  auto tic = std::chrono::steady_clock::now();
+  int total = ids.size();
+  std::vector<std::future<int>> results;
   for (int i = 0; i < total; i++) {
-    ARROW_LOG(DEBUG) << "Try Put " << ids[i].hex();
-    if (Exist(ids[i]).ok()) continue;
-    // find a instansce to put
-    int numaId = 0;
-    auto thread = threads[numaId];
+    if (Exist(ids[i]).ok())
+      continue;
+    // find a random instansce to put
+    int numaId = rand() % totalNumaNodes;
+    auto pool = threadPools[numaId];
     auto cache = caches[numaId];
-    // fprintf(stderr, "cache ptr %p\n", cache);
-    fprintf(stderr, "_id ptr %p\n", ids[i].data());
-    // fprintf(stderr, "value ptr %p\n", data[i]->data());
+    size_t keySize = ids[i].size();
+    char *key = new char[keySize];
+    memcpy(key, ids[i].data(), keySize);
 
-    // ARROW_LOG(DEBUG) << "id ptr is " << ids[i].data() << " value ptr is "
-    //  << data[i]->data();
-    putParam* param = new putParam(cache, (char*)(ids[i].data()), ids[i].size(),
-                                   (char*)data[i]->data(), data[i]->size());
-    thread->addJob(
-        [](void* param) {
-          if (param != nullptr) {
-            putParam* p = (putParam*)param;
-            // ARROW_LOG(DEBUG) << "id ptr is " << p->key << " value ptr is " << p->value;
-            // fprintf(stderr, "_cache ptr %p\n", p->cache);
-            fprintf(stderr, "__id ptr %p\n", p->key);
-            // fprintf(stderr, "_value ptr %p\n", p->value);
-            int ret = vmemcache_put(p->cache, (const void*)(p->key), p->keySize,
-                                    (const void*)(p->value), p->valueSize);
-            // const char* key = "KEY";
-            // const char* value = "VALUE";
-            // int ret = vmemcache_put(p->cache, key, 4, value, 6);
-            ARROW_LOG(DEBUG) << "put result is " << ret;
+    putParam *param = new putParam(cache, key, keySize, (char *)data[i]->data(),
+                                   data[i]->size());
+    results.emplace_back(pool->enqueue([&, param]() {
+      if (param != nullptr) {
+        int ret =
+            vmemcache_put(param->cache, (char *)(param->key), param->keySize,
+                          (char *)(param->value), param->valueSize);
+        // ARROW_LOG(DEBUG) << "put "<< hex((char*)param->key) <<" result is "
+        // << ret;
+        if (ret != 0)
+          ARROW_LOG(DEBUG) << "vmemcache_put error:" << vmemcache_errormsg();
+        delete[](char *) param->key;
+        delete param;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-            size_t valueSize = 0;
-            // ret = vmemcache_exists(p->cache, key, 4, &valueSize);
-            ret = vmemcache_exists(p->cache, (const void*)(p->key), p->keySize, &valueSize);
-            ARROW_LOG(DEBUG) << "exist result is " << ret;
-
-            delete (putParam*)param;
-          } else {
-            ARROW_LOG(FATAL) << "ptr is null !!!";
-          }
-        },
-        param);
+        return ret;
+      } else {
+        // may leak here
+        ARROW_LOG(FATAL) << "ptr is null !!!";
+        return -1;
+      }
+    }));
   }
+
+  for (int i = 0; i < (int)results.size(); i++) {
+    if (results[i].get() != 0)
+      ARROW_LOG(DEBUG) << "Put " << i << " failed";
+  }
+  auto toc = std::chrono::steady_clock::now();
+  std::chrono::duration<double> time_ = toc - tic;
+  ARROW_LOG(DEBUG) << "Put " << total << " objects takes "
+                   << time_.count() * 1000 << " ms";
   return Status::OK();
 }
 
-Status VmemcacheStore::Get(const std::vector<ObjectID>& ids,
+std::string VmemcacheStore::hex(char *id) {
+
+  char hex[] = "0123456789abcdef";
+  std::string result;
+  for (int i = 0; i < 20; i++) {
+    unsigned char val = *(id + i);
+    result.push_back(hex[val >> 4]);
+    result.push_back(hex[val & 0xf]);
+  }
+  return result;
+}
+
+Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
                            std::vector<std::shared_ptr<Buffer>> buffers) {
+  auto tic = std::chrono::steady_clock::now();
   int total = ids.size();
+  std::vector<std::future<int>> results;
   for (int i = 0; i < total; i++) {
     auto id = ids[i];
     auto buffer = buffers[i];
 
-    int numaTotal = caches.size();
     size_t valueSize = 0;
-    for (int j = 0; j < numaTotal; j++) {
-      ARROW_LOG(DEBUG) << "get objectID " << id.hex();
-      if (vmemcache_exists(caches[i], id.data(), id.size(), &valueSize) == 1) {
-        ARROW_LOG(DEBUG) << "call vmemcache_get " << id.hex();
-        auto thread = threads[i];
-        getParam* param = new getParam(caches[i], id.data(), id.size(),
-                                       buffer->mutable_data(), buffer->size(), 0);
-        thread->addJob(
-            [](void* param) {
-              if (param != nullptr) {
-                auto p = (getParam*)param;
-                vmemcache_get(p->cache, p->key, p->key_size, p->vbuf, p->vbufsize,
-                              p->offset, p->vsize);
-              }
-              delete (getParam*)param;
-            },
-            param);
+    for (int j = 0; j < totalNumaNodes; j++) {
+      // ARROW_LOG(DEBUG) << "get objectID " << id.hex();
+      size_t keySize = id.size();
+      char *key = new char[keySize];
+      memcpy(key, id.data(), keySize);
+      auto cache = caches[j];
+      if (vmemcache_exists(cache, key, keySize, &valueSize) == 1) {
+        auto pool = threadPools[j];
+
+        size_t *vSize = new size_t(0);
+        // char* value = new char[buffer->size()];
+        // fprintf(stderr, "cache %p key %p ksize %zu value %p value_size %zu
+        // vSize %p\n", cache,
+        //   key, keySize,buffer->mutable_data(), buffer->size(), vSize);
+        getParam *param =
+            new getParam(cache, key, keySize, (void *)buffer->mutable_data(),
+                         buffer->size(), 0, vSize);
+        results.emplace_back(pool->enqueue([&, param]() {
+          if (param != nullptr) {
+            int ret = vmemcache_get(param->cache, param->key, param->key_size,
+                                    param->vbuf, param->vbufsize, param->offset,
+                                    param->vsize);
+            // ARROW_LOG(DEBUG)
+            //     << "vmemcache_get " << hex((char *)(param->key)) << " returns
+            //     "
+            //     << ret << " vsize " << *(param->vsize);
+            delete[](char *) param->key;
+            delete (getParam *)param;
+            return ret;
+          } else {
+            return -1;
+          }
+        }));
+        break;
+      } else {
+        ARROW_LOG(DEBUG) << id.hex() << " not exist in Vmemcache instance" << j;
       }
     }
   }
+
+  for (int i = 0; i < total; i++) {
+    if (results[i].get() <= 0)
+      ARROW_LOG(DEBUG) << "Get " << i << " failed";
+  }
+
+  auto toc = std::chrono::steady_clock::now();
+  std::chrono::duration<double> time_ = toc - tic;
+  ARROW_LOG(DEBUG) << "Get " << total << " objects takes "
+                   << time_.count() * 1000 << " ms";
   return Status::OK();
 }
 
 Status VmemcacheStore::Exist(ObjectID id) {
-  ARROW_LOG(DEBUG) << "call Exist objectID is " << id.hex();
   for (auto cache : caches) {
     size_t valueSize = 0;
     int ret = vmemcache_exists(cache, id.data(), id.size(), &valueSize);
-    ARROW_LOG(DEBUG) << "object " << id.hex() << " exist return " << ret;
+    // ARROW_LOG(DEBUG) << "object " << id.hex() << " exist return " << ret;
     if (ret == 1) {
       return Status::OK();
     }
@@ -155,4 +211,4 @@ Status VmemcacheStore::Exist(ObjectID id) {
 
 REGISTER_EXTERNAL_STORE("vmemcache", VmemcacheStore);
 
-}  // namespace plasma
+} // namespace plasma

@@ -455,23 +455,23 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // Make sure the object pointer is not already allocated
       ARROW_CHECK(!entry->pointer);
 
-      if (!external_store_->Exist(object_id).ok()) {
-        ARROW_LOG(DEBUG) << "object id " << object_id.hex()
-                         << " is not exist in external store";
-        // external store doesn't contains this object, we will set a placeholder
-        // to indicate this object is nolonger present
-        get_req->objects[object_id].data_size = -1;
-        // Add the get request to the relevant data structures.
-        object_get_requests_[object_id].push_back(get_req);
+      // if (!external_store_->Exist(object_id).ok()) {
+      //   ARROW_LOG(DEBUG) << "object id " << object_id.hex()
+      //                    << " is not exist in external store";
+      //   // external store doesn't contains this object, we will set a placeholder
+      //   // to indicate this object is nolonger present
+      //   get_req->objects[object_id].data_size = -1;
+      //   // Add the get request to the relevant data structures.
+      //   object_get_requests_[object_id].push_back(get_req);
 
-        EraseFromObjectTable(object_id);
-        // Inform all subscribers that the object has been deleted.
-        fb::ObjectInfoT notification;
-        notification.object_id = object_id.binary();
-        notification.is_deletion = true;
-        PushNotification(&notification);
-        continue;
-      }
+      //   EraseFromObjectTable(object_id);
+      //   // Inform all subscribers that the object has been deleted.
+      //   fb::ObjectInfoT notification;
+      //   notification.object_id = object_id.binary();
+      //   notification.is_deletion = true;
+      //   PushNotification(&notification);
+      //   continue;
+      // }
 
       entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
                                       &entry->map_size, &entry->offset, client, false);
@@ -482,6 +482,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
         AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
         evicted_ids.push_back(object_id);
         evicted_entries.push_back(entry);
+        entry->state = ObjectState::PLASMA_SEALED;
       } else {
         // We are out of memory an cannot allocate memory for this object.
         // Change the state of the object back to PLASMA_EVICTED so some
@@ -595,17 +596,17 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
 // Check if an object is present.
 ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
-  if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
-    if (!external_store_->Exist(object_id).ok()) {
-      EraseFromObjectTable(object_id);
-      // Inform all subscribers that the object has been deleted.
-      fb::ObjectInfoT notification;
-      notification.object_id = object_id.binary();
-      notification.is_deletion = true;
-      PushNotification(&notification);
-      return ObjectStatus::OBJECT_NOT_FOUND;
-    }
-  }
+  // if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
+  //   if (!external_store_->Exist(object_id).ok()) {
+  //     EraseFromObjectTable(object_id);
+  //     // Inform all subscribers that the object has been deleted.
+  //     fb::ObjectInfoT notification;
+  //     notification.object_id = object_id.binary();
+  //     notification.is_deletion = true;
+  //     PushNotification(&notification);
+  //     return ObjectStatus::OBJECT_NOT_FOUND;
+  //   }
+  // }
   return entry && (entry->state == ObjectState::PLASMA_SEALED ||
                    entry->state == ObjectState::PLASMA_EVICTED)
              ? ObjectStatus::OBJECT_FOUND

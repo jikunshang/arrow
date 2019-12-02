@@ -22,9 +22,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <memory>
 #include <thread>
-#include <chrono>
 
 #include <gtest/gtest.h>
 
@@ -42,24 +42,26 @@ namespace plasma {
 
 using arrow::internal::TemporaryDir;
 
-std::string external_test_executable;  // NOLINT
+std::string external_test_executable; // NOLINT
 
-void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
-                             const std::string& metadata, const std::string& data) {
+void AssertObjectBufferEqual(const ObjectBuffer &object_buffer,
+                             const std::string &metadata,
+                             const std::string &data) {
   arrow::AssertBufferEqual(*object_buffer.metadata, metadata);
+  ARROW_LOG(DEBUG) << "metadata";
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
 class TestPlasmaStoreWithExternalVmem : public ::testing::Test {
- public:
+public:
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() override {
     ARROW_CHECK_OK(TemporaryDir::Make("ext-test-", &temp_dir_));
     store_socket_name_ = temp_dir_->path().ToString() + "store";
-
-    std::string plasma_directory =
-        external_test_executable.substr(0, external_test_executable.find_last_of('/'));
+    // store_socket_name_ = "/tmp/plasmaStore";
+    std::string plasma_directory = external_test_executable.substr(
+        0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
                                  "/plasma-store-server -m 1024000 -e " +
                                  "vmemcache://test -s " + store_socket_name_ +
@@ -85,7 +87,7 @@ class TestPlasmaStoreWithExternalVmem : public ::testing::Test {
     PLASMA_CHECK_SYSTEM(system(plasma_kill_command.c_str()));
   }
 
- protected:
+protected:
   PlasmaClient client_;
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::string store_socket_name_;
@@ -95,11 +97,10 @@ TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
   std::vector<ObjectID> object_ids;
   std::string data(100 * 1024, 'x');
   std::string metadata;
-  for (int i = 0; i < 12; i++) {
+  for (int i = 0; i < 20; i++) {
     ObjectID object_id = random_object_id();
-    
+
     object_ids.push_back(object_id);
-    fprintf(stderr, "id ptr %p\n", object_id.data());
     // Test for object non-existence.
     bool has_object;
     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
@@ -113,8 +114,8 @@ TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
     ASSERT_TRUE(has_object);
     std::cerr << "this is " << i << "put" << std::endl;
   }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  for (int i = 1; i < 12; i++) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+  for (int i = 1; i < 20; i++) {
     // Since we are accessing objects sequentially, every object we
     // access would be a cache "miss" owing to LRU eviction.
     // Try and access the object from the plasma store first, and then try
@@ -138,9 +139,9 @@ TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
   ASSERT_EQ(object_buffers[0].metadata, nullptr);
 }
 
-}  // namespace plasma
+} // namespace plasma
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   plasma::external_test_executable = std::string(argv[0]);
   return RUN_ALL_TESTS();

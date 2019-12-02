@@ -215,7 +215,7 @@ class PlasmaStore {
   /// to the eviction policy.
   PlasmaStoreInfo store_info_;
   /// The state that is managed by the eviction policy.
-  QuotaAwarePolicy eviction_policy_;
+  EvictionPolicy eviction_policy_;
   /// Input buffer. This is allocated only once to avoid mallocs for every
   /// call to process_message.
   std::vector<uint8_t> input_buffer_;
