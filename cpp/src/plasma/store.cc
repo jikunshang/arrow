@@ -299,7 +299,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   // Notify the eviction policy that this object was created. This must be done
   // immediately before the call to AddToClientObjectIds so that the
   // eviction policy does not have an opportunity to evict the object.
-  eviction_policy_.ObjectCreated(object_id);
+  eviction_policy_.ObjectCreated(object_id, nullptr, true);
   // Record that this client is using this object.
   AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
   return PlasmaError::OK;
@@ -462,7 +462,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       if (entry->pointer) {
         entry->state = ObjectState::PLASMA_CREATED;
         entry->create_time = std::time(nullptr);
-        eviction_policy_.ObjectCreated(object_id);
+        eviction_policy_.ObjectCreated(object_id, nullptr, true);
         AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
         evicted_ids.push_back(object_id);
         evicted_entries.push_back(entry);
@@ -544,6 +544,10 @@ void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
   store_info_.objects.erase(object_id);
 }
 
+void PlasmaStore::PushNotifications(std::vector<flatbuf::ObjectInfoT>& object_notifications) {
+  return;
+}
+
 void PlasmaStore::ReleaseObject(const ObjectID& object_id,
                                 const std::shared_ptr<ClientConnection>& client) {
   // Remove the client from the object's array of clients.
@@ -576,11 +580,11 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
 // Seal an object that has been created in the hash table.
 void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
                               const std::vector<std::string>& digests) {
-  std::vector<ObjectInfoT> infos;
+  std::vector<flatbuf::ObjectInfoT> infos;
 
   ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
   for (size_t i = 0; i < object_ids.size(); ++i) {
-    ObjectInfoT object_info;
+    flatbuf::ObjectInfoT object_info;
     auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
     ARROW_CHECK(entry != nullptr);
     ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
@@ -651,7 +655,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   eviction_policy_.RemoveObject(object_id);
   EraseFromObjectTable(object_id);
   // Inform all subscribers that the object has been deleted.
-  PushObjectDeletionNotification(object_id);
+  // PushObjectDeletionNotification(object_id);
   return PlasmaError::OK;
 }
 
@@ -682,7 +686,7 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
       // and send a deletion notification.
       EraseFromObjectTable(object_id);
       // Inform all subscribers that the object has been deleted.
-      PushObjectDeletionNotification(object_id);
+      // PushObjectDeletionNotification(object_id);
     }
   }
 
@@ -703,7 +707,8 @@ void PlasmaStore::IncreaseObjectRefCount(const ObjectID& object_id,
   if (entry->ref_count == 0) {
     // Tell the eviction policy that this object is being used.
     std::vector<ObjectID> objects_to_evict;
-    eviction_policy_.BeginObjectAccess(object_id, &objects_to_evict);
+    // eviction_policy_.BeginObjectAccess(object_id, &objects_to_evict);
+    eviction_policy_.BeginObjectAccess(object_id);
     EvictObjects(objects_to_evict);
   }
   // Increase reference count.
@@ -721,7 +726,8 @@ void PlasmaStore::DecreaseObjectRefCount(const ObjectID& object_id,
     if (deletion_cache_.count(object_id) == 0) {
       // Tell the eviction policy that this object is no longer being used.
       std::vector<ObjectID> objects_to_evict;
-      eviction_policy_.EndObjectAccess(object_id, &objects_to_evict);
+      // eviction_policy_.EndObjectAccess(object_id, &objects_to_evict);
+      eviction_policy_.EndObjectAccess(object_id);
       EvictObjects(objects_to_evict);
     } else {
       // Above code does not really delete an object. Instead, it just put an
@@ -739,10 +745,10 @@ void PlasmaStore::PushObjectReadyNotification(const ObjectID& object_id,
   }
 }
 
-void PlasmaStore::PushObjectDeletionNotification(const ObjectID& object_id) {
-  for (const auto& client : notification_clients_) {
-    client->SendObjectDeletionAsync(object_id);
-  }
+void PushObjectDeletionNotification(const ObjectID& object_id) {
+  // for (const auto& client : notification_clients_) {
+  //   client->SendObjectDeletionAsync(object_id);
+  // }
 }
 
 // Subscribe to notifications about sealed objects.
@@ -889,8 +895,9 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
       std::string data;
       std::string metadata;
       unsigned char digest[kDigestSize];
+      std::string s((char*)digest);
       RETURN_NOT_OK(ReadCreateAndSealRequest(message_data, message_size, &object_id,
-                                             &data, &metadata, &digest[0]));
+                                             &data, &metadata, &s));
       PlasmaObject object = {};
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
@@ -907,7 +914,8 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
         // Write the inlined data and metadata into the allocated object.
         std::memcpy(entry->pointer, data.data(), data.size());
         std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
-        SealObject(object_id, &digest[0]);
+        std::string s((char*)digest);
+        SealObjects({object_id}, {s} );
         // Remove the client from the object's array of clients because the
         // object is not being used by any client. The client was added to the
         // object's array of clients in CreateObject. This is analogous to the
@@ -956,7 +964,7 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
     case MessageType::PlasmaSealRequest: {
       std::string digest;
       digest.reserve(kDigestSize);
-      RETURN_NOT_OK(ReadSealRequest(message_data, message_size, &object_id, &digest[0]));
+      RETURN_NOT_OK(ReadSealRequest(message_data, message_size, &object_id, &digest));
       SealObjects({object_id}, {digest});
     } break;
     case MessageType::PlasmaEvictRequest: {

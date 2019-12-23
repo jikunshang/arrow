@@ -27,6 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/util/logging.h"
 #include "plasma/common.h"
 
 using arrow::Buffer;
@@ -264,6 +265,9 @@ class ARROW_EXPORT PlasmaClient {
   /// \param metadata_size Out parameter, the metadata size of the object that was sealed.
   /// \return The return status.
   Status GetNotification(ObjectID* object_id, int64_t* data_size, int64_t* metadata_size);
+
+  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
+                                        int64_t* data_size, int64_t* metadata_size);
 
   Status DecodeNotifications(const uint8_t* buffer, std::vector<ObjectID>* object_ids,
                              std::vector<int64_t>* data_sizes,

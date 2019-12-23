@@ -36,8 +36,14 @@
 #include "arrow/buffer.h"
 #include "arrow/util/thread_pool.h"
 
+// #include "plasma/common.h"
+// #include "plasma/malloc.h"
+// #include "plasma/protocol.h"
+
 #include "plasma/common.h"
+#include "plasma/fling.h"
 #include "plasma/malloc.h"
+#include "plasma/plasma.h"
 #include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
@@ -502,28 +508,28 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
                                               const std::vector<std::string>& metadata) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
-  ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
+  // ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
 
-  int device_num = 0;
-  std::vector<std::string> digests;
-  for (size_t i = 0; i < object_ids.size(); i++) {
-    // Compute the object hash.
-    std::string digest;
-    // CreateAndSeal currently only supports device_num = 0, which corresponds to
-    // the host.
-    uint64_t hash = ComputeObjectHash(
-        reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-        reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
-    digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
-    digests.push_back(digest);
-  }
+  // int device_num = 0;
+  // std::vector<std::string> digests;
+  // for (size_t i = 0; i < object_ids.size(); i++) {
+  //   // Compute the object hash.
+  //   std::string digest;
+  //   // CreateAndSeal currently only supports device_num = 0, which corresponds to
+  //   // the host.
+  //   uint64_t hash = ComputeObjectHash(
+  //       reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+  //       reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+  //   digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
+  //   digests.push_back(digest);
+  // }
 
-  RETURN_NOT_OK(
-      SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(
-      PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
-  RETURN_NOT_OK(ReadCreateAndSealBatchReply(buffer.data(), buffer.size()));
+  // RETURN_NOT_OK(
+  //     SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
+  // std::vector<uint8_t> buffer;
+  // RETURN_NOT_OK(
+  //     PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
+  // RETURN_NOT_OK(ReadCreateAndSealBatchReply(buffer.data(), buffer.size()));
 
   return Status::OK();
 }
@@ -857,8 +863,9 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   /// Send the seal request to Plasma.
   std::vector<uint8_t> digest(kDigestSize);
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
+  std::string s = std::string(digest.begin(), digest.end());
   RETURN_NOT_OK(
-      SendSealRequest(store_conn_, object_id, std::string(digest.begin(), digest.end())));
+      SendSealRequest(store_conn_, object_id, (unsigned char*)s.c_str()));
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment
@@ -1042,11 +1049,12 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name) {
 
 Status PlasmaClient::Impl::SetClientOptions(const std::string& client_name,
                                             int64_t output_memory_quota) {
-  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-  RETURN_NOT_OK(SendSetOptionsRequest(store_conn_, client_name, output_memory_quota));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply, &buffer));
-  return ReadSetOptionsReply(buffer.data(), buffer.size());
+  // std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+  // RETURN_NOT_OK(SendSetOptionsRequest(store_conn_, client_name, output_memory_quota));
+  // std::vector<uint8_t> buffer;
+  // RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply, &buffer));
+  // return ReadSetOptionsReply(buffer.data(), buffer.size());
+  return Status::OK();
 }
 
 Status PlasmaClient::Impl::Disconnect() {

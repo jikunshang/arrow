@@ -87,13 +87,13 @@ Status SendCreateAndSealRequest(const std::shared_ptr<ServerConnection>& client,
 
 Status ReadCreateAndSealRequest(const uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
-                                unsigned char* digest);
+                                std::string* digest);
 
-// TODO(suquark): Replace raw socket with client handle.
-Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
-                                     const std::vector<std::string>& data,
-                                     const std::vector<std::string>& metadata,
-                                     const std::vector<std::string>& digests);
+// // TODO(suquark): Replace raw socket with client handle.
+// Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
+//                                      const std::vector<std::string>& data,
+//                                      const std::vector<std::string>& metadata,
+//                                      const std::vector<std::string>& digests);
 
 Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
                                      std::vector<ObjectID>* object_id,
@@ -102,7 +102,7 @@ Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
                                      std::vector<std::string>* digests);
 
 // TODO(suquark): Replace raw socket with client handle.
-Status SendCreateAndSealBatchReply(int sock, PlasmaError error);
+// Status SendCreateAndSealBatchReply(int sock, PlasmaError error);
 
 Status SendCreateAndSealReply(const std::shared_ptr<ClientConnection>& client,
                               PlasmaError error);
@@ -127,7 +127,7 @@ Status SendSealRequest(const std::shared_ptr<ServerConnection>& client,
                        ObjectID object_id, unsigned char* digest);
 
 Status ReadSealRequest(const uint8_t* data, size_t size, ObjectID* object_id,
-                       unsigned char* digest);
+                       std::string* digest);
 
 Status SendSealReply(const std::shared_ptr<ClientConnection>& client, ObjectID object_id,
                      PlasmaError error);

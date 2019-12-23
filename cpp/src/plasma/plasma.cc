@@ -16,6 +16,7 @@
 // under the License.
 
 #include "plasma/plasma.h"
+#include "plasma/common_generated.h"
 #include "plasma/common.h"
 
 namespace plasma {

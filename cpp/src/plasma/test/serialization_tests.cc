@@ -129,7 +129,7 @@ TEST_F(TestPlasmaSerialization, CreateReply) {
 TEST_F(TestPlasmaSerialization, SealRequest) {
   ObjectID object_id1 = random_object_id();
   std::string digest1 = std::string(kDigestSize, 7);
-  ASSERT_OK(SendSealRequest(client_, object_id1, digest1));
+  ASSERT_OK(SendSealRequest(client_, object_id1, (unsigned char*)digest1.c_str()));
   std::vector<uint8_t> data;
   ASSERT_OK(PlasmaReceive(server_, MessageType::PlasmaSealRequest, &data));
   ObjectID object_id2;

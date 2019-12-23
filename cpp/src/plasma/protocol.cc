@@ -118,13 +118,13 @@ Status PlasmaSend(const std::shared_ptr<ClientConnection>& client,
 // Set options messages.
 
 // TODO(suquark): Get rid of raw socket handle
-Status SendSetOptionsRequest(int sock, const std::string& client_name,
-                             int64_t output_memory_limit) {
-  flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaSetOptionsRequest(fbb, fbb.CreateString(client_name),
-                                                   output_memory_limit);
-  return PlasmaSend(sock, MessageType::PlasmaSetOptionsRequest, &fbb, message);
-}
+// Status SendSetOptionsRequest(int sock, const std::string& client_name,
+//                              int64_t output_memory_limit) {
+//   flatbuffers::FlatBufferBuilder fbb;
+//   auto message = fb::CreatePlasmaSetOptionsRequest(fbb, fbb.CreateString(client_name),
+//                                                    output_memory_limit);
+//   return PlasmaSend(sock, MessageType::PlasmaSetOptionsRequest, &fbb, message);
+// }
 
 Status ReadSetOptionsRequest(uint8_t* data, size_t size, std::string* client_name,
                              int64_t* output_memory_quota) {
@@ -136,12 +136,12 @@ Status ReadSetOptionsRequest(uint8_t* data, size_t size, std::string* client_nam
   return Status::OK();
 }
 
-// TODO(suquark): Get rid of raw socket handle
-Status SendSetOptionsReply(int sock, PlasmaError error) {
-  flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaSetOptionsReply(fbb, error);
-  return PlasmaSend(sock, MessageType::PlasmaSetOptionsReply, &fbb, message);
-}
+// // TODO(suquark): Get rid of raw socket handle
+// Status SendSetOptionsReply(int sock, PlasmaError error) {
+//   flatbuffers::FlatBufferBuilder fbb;
+//   auto message = fb::CreatePlasmaSetOptionsReply(fbb, error);
+//   return PlasmaSend(sock, MessageType::PlasmaSetOptionsReply, &fbb, message);
+// }
 
 Status ReadSetOptionsReply(uint8_t* data, size_t size) {
   DCHECK(data);
@@ -153,17 +153,17 @@ Status ReadSetOptionsReply(uint8_t* data, size_t size) {
 // Get debug string messages.
 
 // TODO(suquark): Get rid of raw socket handle
-Status SendGetDebugStringRequest(int sock) {
-  flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaGetDebugStringRequest(fbb);
-  return PlasmaSend(sock, MessageType::PlasmaGetDebugStringRequest, &fbb, message);
-}
+// Status SendGetDebugStringRequest(int sock) {
+//   flatbuffers::FlatBufferBuilder fbb;
+//   auto message = fb::CreatePlasmaGetDebugStringRequest(fbb);
+//   return PlasmaSend(sock, MessageType::PlasmaGetDebugStringRequest, &fbb, message);
+// }
 
 // TODO(suquark): Get rid of raw socket handle
-Status SendGetDebugStringReply(int sock, const std::string& debug_string) {
-  flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaGetDebugStringReply(fbb, fbb.CreateString(debug_string));
-  return PlasmaSend(sock, MessageType::PlasmaGetDebugStringReply, &fbb, message);
+// Status SendGetDebugStringReply(int sock, const std::string& debug_string) {
+//   flatbuffers::FlatBufferBuilder fbb;
+//   auto message = fb::CreatePlasmaGetDebugStringReply(fbb, fbb.CreateString(debug_string));
+//   return PlasmaSend(sock, MessageType::PlasmaGetDebugStringReply, &fbb, message);
 
 // Create messages.
 
@@ -276,19 +276,19 @@ Status ReadCreateAndSealRequest(const uint8_t* data, size_t size, ObjectID* obje
   return Status::OK();
 }
 
-Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
-                                     const std::vector<std::string>& data,
-                                     const std::vector<std::string>& metadata,
-                                     const std::vector<std::string>& digests) {
-  flatbuffers::FlatBufferBuilder fbb;
+// Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
+//                                      const std::vector<std::string>& data,
+//                                      const std::vector<std::string>& metadata,
+//                                      const std::vector<std::string>& digests) {
+//   flatbuffers::FlatBufferBuilder fbb;
 
-  auto message = fb::CreatePlasmaCreateAndSealBatchRequest(
-      fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()),
-      ToFlatbuffer(&fbb, data), ToFlatbuffer(&fbb, metadata),
-      ToFlatbuffer(&fbb, digests));
+//   auto message = fb::CreatePlasmaCreateAndSealBatchRequest(
+//       fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()),
+//       ToFlatbuffer(&fbb, data), ToFlatbuffer(&fbb, metadata),
+//       ToFlatbuffer(&fbb, digests));
 
-  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchRequest, &fbb, message);
-}
+//   return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchRequest, &fbb, message);
+// }
 
 Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
                                      std::vector<ObjectID>* object_ids,
@@ -330,12 +330,12 @@ Status ReadCreateAndSealReply(const uint8_t* data, size_t size) {
   return PlasmaErrorStatus(message->error());
 }
 
-Status SendCreateAndSealBatchReply(int sock, PlasmaError error) {
-  flatbuffers::FlatBufferBuilder fbb;
-  auto message =
-      fb::CreatePlasmaCreateAndSealBatchReply(fbb, static_cast<PlasmaError>(error));
-  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchReply, &fbb, message);
-}
+// Status SendCreateAndSealBatchReply(int sock, PlasmaError error) {
+//   flatbuffers::FlatBufferBuilder fbb;
+//   auto message =
+//       fb::CreatePlasmaCreateAndSealBatchReply(fbb, static_cast<PlasmaError>(error));
+//   return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchReply, &fbb, message);
+// }
 
 Status ReadCreateAndSealBatchReply(uint8_t* data, size_t size) {
   DCHECK(data);

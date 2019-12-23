@@ -102,49 +102,49 @@ class TestPlasmaStore : public ::testing::Test {
   std::string store_socket_name_;
 };
 
-TEST_F(TestPlasmaStore, NewSubscriberTest) {
-  PlasmaClient local_client, local_client2;
+// TEST_F(TestPlasmaStore, NewSubscriberTest) {
+//   PlasmaClient local_client, local_client2;
 
-  ASSERT_OK(local_client.Connect(store_socket_name_, ""));
-  ASSERT_OK(local_client2.Connect(store_socket_name_, ""));
+//   ASSERT_OK(local_client.Connect(store_socket_name_, ""));
+//   ASSERT_OK(local_client2.Connect(store_socket_name_, ""));
 
-  ObjectID object_id = random_object_id();
+//   ObjectID object_id = random_object_id();
 
-  // Test for the object being in local Plasma store.
-  // First create object.
-  int64_t data_size = 100;
-  uint8_t metadata[] = {5};
-  int64_t metadata_size = sizeof(metadata);
-  std::shared_ptr<Buffer> data;
-  ASSERT_OK(
-      local_client.Create(object_id, data_size, metadata, metadata_size, &data));
-  ASSERT_OK(local_client.Seal(object_id));
+//   // Test for the object being in local Plasma store.
+//   // First create object.
+//   int64_t data_size = 100;
+//   uint8_t metadata[] = {5};
+//   int64_t metadata_size = sizeof(metadata);
+//   std::shared_ptr<Buffer> data;
+//   ASSERT_OK(
+//       local_client.Create(object_id, data_size, metadata, metadata_size, &data));
+//   ASSERT_OK(local_client.Seal(object_id));
 
-  // Test that new subscriber client2 can receive notifications about existing objects.
-  ASSERT_OK(local_client2.Subscribe());
+//   // Test that new subscriber client2 can receive notifications about existing objects.
+//   ASSERT_OK(local_client2.Subscribe());
 
-  ObjectID object_id2 = random_object_id();
-  int64_t data_size2 = 0;
-  int64_t metadata_size2 = 0;
-  ASSERT_OK(
-      local_client2.GetNotification(&object_id2, &data_size2, &metadata_size2));
-  ASSERT_EQ(object_id, object_id2);
-  ASSERT_EQ(data_size, data_size2);
-  ASSERT_EQ(metadata_size, metadata_size2);
+//   ObjectID object_id2 = random_object_id();
+//   int64_t data_size2 = 0;
+//   int64_t metadata_size2 = 0;
+//   ASSERT_OK(
+//       local_client2.GetNotification(&object_id2, &data_size2, &metadata_size2));
+//   ASSERT_EQ(object_id, object_id2);
+//   ASSERT_EQ(data_size, data_size2);
+//   ASSERT_EQ(metadata_size, metadata_size2);
 
-  // Delete the object.
-  ASSERT_OK(local_client.Release(object_id));
-  ASSERT_OK(local_client.Delete(object_id));
+//   // Delete the object.
+//   ASSERT_OK(local_client.Release(object_id));
+//   ASSERT_OK(local_client.Delete(object_id));
 
-  ASSERT_OK(
-      local_client2.GetNotification(&object_id2, &data_size2, &metadata_size2));
-  ASSERT_EQ(object_id, object_id2);
-  ASSERT_EQ(-1, data_size2);
-  ASSERT_EQ(-1, metadata_size2);
+//   ASSERT_OK(
+//       local_client2.GetNotification(&object_id2, &data_size2, &metadata_size2));
+//   ASSERT_EQ(object_id, object_id2);
+//   ASSERT_EQ(-1, data_size2);
+//   ASSERT_EQ(-1, metadata_size2);
 
-  ASSERT_OK(local_client2.Disconnect());
-  ASSERT_OK(local_client.Disconnect());
-}
+//   ASSERT_OK(local_client2.Disconnect());
+//   ASSERT_OK(local_client.Disconnect());
+// }
 
 TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = random_object_id();

@@ -69,6 +69,26 @@ struct PlasmaObject {
   }
 };
 
+/// Contains all information that is associated with a Plasma store client.
+struct Client {
+  explicit Client(int fd);
+
+  /// The file descriptor used to communicate with the client.
+  int fd;
+
+  /// Object ids that are used by this client.
+  std::unordered_set<ObjectID> object_ids;
+
+  /// File descriptors that are used by this client.
+  std::unordered_set<int> used_fds;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if client subscribes to plasma store. -1 indicates invalid.
+  int notification_fd;
+
+  std::string name = "anonymous_client";
+};
+
 enum class ObjectStatus : int {
   /// The object was not found.
   OBJECT_NOT_FOUND = 0,

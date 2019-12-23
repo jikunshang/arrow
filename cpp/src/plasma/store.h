@@ -30,6 +30,9 @@
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 #include "plasma/quota_aware_policy.h"
+#include "plasma/common_generated.h"
+#include "plasma/quota_aware_policy.h"
+#include "plasma/external_store.h"
 
 namespace arrow {
 class Status;
@@ -160,9 +163,9 @@ class PlasmaStore {
                                    const ObjectTableEntry& entry);
 
   // Inform all subscribers that an object has evicted.
-  void PushNotifications(std::vector<ObjectInfoT>& object_notifications);
+  void PushNotifications(std::vector<flatbuf::ObjectInfoT>& object_notifications);
 
-  void PushNotification(ObjectInfoT* object_notification, int client_fd);
+  void PushNotification(flatbuf::ObjectInfoT* object_notification, int client_fd);
 
   void AddToClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
                             const std::shared_ptr<ClientConnection>& client);
