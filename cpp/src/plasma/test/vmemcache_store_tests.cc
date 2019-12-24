@@ -64,7 +64,7 @@ public:
         0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
                                  "/plasma-store-server -m 1024000 -e " +
-                                 "vmemcache://test -s " + store_socket_name_ +
+                                 "vmemcache://size:1000000000000 -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));

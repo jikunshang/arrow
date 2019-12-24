@@ -26,13 +26,20 @@
 #include <libvmemcache.h>
 
 //#define CACHE_MAX_SIZE (462 * 1024 * 1024 * 1024L)
-#define CACHE_MAX_SIZE (450 * 1024 * 1024 * 1024L)
+#define CACHE_MAX_SIZE (1024 * 1024 * 1024L)
 #define CACHE_EXTENT_SIZE 512
 
 namespace plasma {
 
 // Connect here is like something initial
 Status VmemcacheStore::Connect(const std::string &endpoint) {
+  auto size_start = endpoint.find("size:") + 5;
+  auto size_end = endpoint.size();
+   ARROW_LOG(DEBUG) << endpoint << "start:"<< size_start << "end:" <<size_end;
+  std::string sizeStr = endpoint.substr(size_start, size_end);
+  unsigned long long size = std::stoull(sizeStr);
+  if(size == 0) size = CACHE_MAX_SIZE;
+  ARROW_LOG(DEBUG) << "vmemcache size is " << size;
   for (int i = 0; i < totalNumaNodes; i++) {
     // initial vmemcache on numa node i
     VMEMcache *cache = vmemcache_new();
@@ -43,9 +50,9 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
     // TODO: how to find path and bind numa?
     std::string s = "/mnt/pmem" + std::to_string(i);
     ARROW_LOG(DEBUG) << "initial vmemcache on " << s << ", size"
-                     << CACHE_MAX_SIZE << ", extent size" << CACHE_EXTENT_SIZE;
+                     << size << ", extent size" << CACHE_EXTENT_SIZE;
 
-    if (vmemcache_set_size(cache, CACHE_MAX_SIZE)) {
+    if (vmemcache_set_size(cache, size)) {
       ARROW_LOG(DEBUG) << "vmemcache_set_size error:" << vmemcache_errormsg();
       ARROW_LOG(FATAL) << "vmemcache_set_size failed!";
     }
@@ -57,7 +64,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
     }
 
     if (vmemcache_add(cache, s.c_str()))
-      ARROW_LOG(FATAL) << "Initial vmemcache failed!";
+      ARROW_LOG(FATAL) << "Initial vmemcache failed!" << vmemcache_errormsg();
 
     caches.push_back(cache);
 
