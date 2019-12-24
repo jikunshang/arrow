@@ -98,7 +98,7 @@ class EvictionPolicy {
   /// \param store_info Information about the Plasma store that is exposed
   ///        to the eviction policy.
   /// \param max_size Max size in bytes total of objects to store.
-  explicit EvictionPolicy(PlasmaStoreInfo* store_info, int64_t max_size);
+  explicit EvictionPolicy(PlasmaStoreInfo* store_info, int64_t max_size = 1000000000);
 
   /// Destroy an eviction policy.
   virtual ~EvictionPolicy() {}

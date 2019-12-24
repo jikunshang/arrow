@@ -146,7 +146,7 @@ struct GetRequest {
 PlasmaStore::PlasmaStore(asio::io_context& io_context, std::string directory,
                          bool hugepages_enabled, const std::string& stream_name,
                          std::shared_ptr<ExternalStore> external_store)
-    : eviction_policy_(&store_info_),
+    : eviction_policy_(&store_info_, 10000),
       external_store_(external_store),
       io_context_(io_context),
       stream_name_(stream_name),

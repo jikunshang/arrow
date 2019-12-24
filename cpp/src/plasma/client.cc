@@ -957,11 +957,12 @@ Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) 
 Status PlasmaClient::Impl::Refresh(const std::vector<ObjectID>& object_ids) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
-  RETURN_NOT_OK(SendRefreshLRURequest(store_conn_, object_ids));
-  std::vector<uint8_t> buffer;
-  MessageType type;
-  RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
-  return ReadRefreshLRUReply(buffer.data(), buffer.size());
+  return Status::OK();
+  // RETURN_NOT_OK(SendRefreshLRURequest(store_conn_, object_ids));
+  // std::vector<uint8_t> buffer;
+  // MessageType type;
+  // RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
+  // return ReadRefreshLRUReply(buffer.data(), buffer.size());
 }
 
 Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
