@@ -74,7 +74,7 @@ if(NOT APPLE AND NOT MSVC)
   # from the client application. The OS X linker does not support the
   # version-script option.
   set(PLASMA_SHARED_LINK_FLAGS
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
+      "-Wl,--no-undefined,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
 add_arrow_lib(plasma
@@ -118,7 +118,7 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
 endif()
 
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc" "vmemcache_store.cc")
-link_libraries(vmemcache numa)
+link_libraries(vmemcache numa boost_system)
 
 # We use static libraries for the plasma-store-server executable so that it can
 # be copied around and used in different locations.

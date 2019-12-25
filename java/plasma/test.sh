@@ -34,10 +34,9 @@ pushd ../../cpp
         cmake -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_FLAGS="-g -O3" \
             -DCMAKE_CXX_FLAGS="-g -O3" \
-            -DARROW_BUILD_TESTS=off \
+            -DARROW_BUILD_TESTS=on \
             -DARROW_HDFS=on \
-            -DARROW_BOOST_USE_SHARED=on \
-            -DARROW_PYTHON=on \
+            -DARROW_BOOST_USE_SHARED=off \
             -DARROW_PLASMA=on \
             -DPLASMA_PYTHON=on \
             -DARROW_JEMALLOC=off \
@@ -51,6 +50,6 @@ pushd ../../cpp
     popd
 popd
 
-mvn clean install
-export PLASMA_STORE=$ROOT_DIR/../../cpp/release/release/plasma_store_server
+mvn clean install -Dcheckstyle.skip
+export PLASMA_STORE=$ROOT_DIR/../../cpp/release/release/plasma-store-server
 java -cp target/test-classes:target/classes -Djava.library.path=$ROOT_DIR/../../cpp/release/release/ org.apache.arrow.plasma.PlasmaClientTest
