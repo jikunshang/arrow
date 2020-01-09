@@ -20,6 +20,7 @@
 
 #include "plasma/external_store.h"
 #include "plasma/numaThreadPool.h"
+#include "plasma/eviction_policy.h"
 
 #include <libvmemcache.h>
 
@@ -79,15 +80,21 @@ public:
 
   Status Put(const std::vector<ObjectID> &ids,
              const std::vector<std::shared_ptr<Buffer>> &data) override;
+  Status Put(const std::vector<ObjectID> &ids,
+                           const std::vector<std::shared_ptr<Buffer>> &data,
+                           int numaId);
 
   Status Exist(ObjectID id) override;
   static std::string hex(char *id);
+  Status RegisterEvictionPolicy(std::shared_ptr<EvictionPolicy> eviction_policy) override;
 
 private:
+  void Evict(std::vector<ObjectID> &ids, std::vector<std::shared_ptr<Buffer>> &datas);
   std::vector<VMEMcache *> caches;
-  std::vector<std::shared_ptr<ThreadPool>> threadPools;
+  std::vector<std::shared_ptr<numaThreadPool>> threadPools;
   int totalNumaNodes = 2;
   int threadInPools = 24;
+  std::shared_ptr<EvictionPolicy> evictionPolicy_;
 };
 
 } // namespace plasma
