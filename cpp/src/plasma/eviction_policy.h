@@ -194,6 +194,12 @@ class EvictionPolicy {
   /// Returns debugging information for this eviction policy.
   virtual std::string DebugString() const;
 
+  virtual int64_t RemainingCapacity() const {return cache_.RemainingCapacity();}
+
+  virtual int64_t Capacity() const {return cache_.Capacity(); }
+
+  virtual PlasmaStoreInfo* getStoreInfo() {return store_info_;}
+
  protected:
   /// Returns the size of the object
   int64_t GetObjectSize(const ObjectID& object_id) const;

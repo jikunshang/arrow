@@ -17,8 +17,8 @@
 
 // this file is copied from https://github.com/progschj/ThreadPool
 
-#ifndef THREAD_POOL_H
-#define THREAD_POOL_H
+#ifndef NUMA_THREAD_POOL_H
+#define NUMA_THREAD_POOL_H
 
 #include <condition_variable>
 #include <functional>
@@ -33,13 +33,15 @@
 
 #include <numa.h>
 
-class ThreadPool {
+namespace plasma {
+
+class numaThreadPool {
 public:
-  ThreadPool(int, size_t);
+  numaThreadPool(int, size_t);
   template <class F, class... Args>
   auto enqueue(F &&f, Args &&... args)
       -> std::future<typename std::result_of<F(Args...)>::type>;
-  ~ThreadPool();
+  ~numaThreadPool();
 
 private:
   // need to keep track of threads so we can join them
@@ -60,7 +62,7 @@ private:
 };
 
 // the constructor just launches some amount of workers
-inline ThreadPool::ThreadPool(int numaNode_, size_t threads_) : stop(false) {
+inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_) : stop(false) {
   numaNode = numaNode_;
   getNumaNodeCpu(numaNode, cpus);
   threads = (threads_ < cpus.size()) ? threads_ : cpus.size();
@@ -92,7 +94,7 @@ inline ThreadPool::ThreadPool(int numaNode_, size_t threads_) : stop(false) {
 
 // add new work item to the pool
 template <class F, class... Args>
-auto ThreadPool::enqueue(F &&f, Args &&... args)
+auto numaThreadPool::enqueue(F &&f, Args &&... args)
     -> std::future<typename std::result_of<F(Args...)>::type> {
   using return_type = typename std::result_of<F(Args...)>::type;
 
@@ -105,7 +107,7 @@ auto ThreadPool::enqueue(F &&f, Args &&... args)
 
     // don't allow enqueueing after stopping the pool
     if (stop)
-      throw std::runtime_error("enqueue on stopped ThreadPool");
+      throw std::runtime_error("enqueue on stopped numaThreadPool");
 
     tasks.emplace([task]() { (*task)(); });
   }
@@ -114,7 +116,7 @@ auto ThreadPool::enqueue(F &&f, Args &&... args)
 }
 
 // the destructor joins all threads
-inline ThreadPool::~ThreadPool() {
+inline numaThreadPool::~numaThreadPool() {
   {
     std::unique_lock<std::mutex> lock(queue_mutex);
     stop = true;
@@ -124,7 +126,7 @@ inline ThreadPool::~ThreadPool() {
     worker.join();
 }
 
-void ThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
+void numaThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
   int i, err;
   struct bitmask *cpumask;
 
@@ -137,4 +139,6 @@ void ThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
   }
 }
 
+
+} //namespace plasma
 #endif
