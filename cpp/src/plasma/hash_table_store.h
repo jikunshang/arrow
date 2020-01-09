@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "plasma/external_store.h"
+#include "plasma/eviction_policy.h"
 
 namespace plasma {
 
@@ -43,6 +44,8 @@ class HashTableStore : public ExternalStore {
              const std::vector<std::shared_ptr<Buffer>>& data) override;
 
   Status Exist(ObjectID id) override;
+
+  Status RegisterEvictionPolicy(std::shared_ptr<EvictionPolicy> eviction_policy) override;
 
  private:
   typedef std::unordered_map<ObjectID, std::string> HashTable;

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "plasma/client.h"
+#include "plasma/eviction_policy.h"
 
 namespace plasma {
 
@@ -81,6 +82,8 @@ class ExternalStore {
   /// \param id The ID of the objects to get.
   /// \return The return status.
   virtual Status Exist(ObjectID id) = 0;
+
+  virtual Status RegisterEvictionPolicy(std::shared_ptr<EvictionPolicy> eviction_policy) = 0;
 };
 
 class ExternalStores {
