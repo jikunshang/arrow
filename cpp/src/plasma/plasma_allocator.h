@@ -21,6 +21,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <mutex>
+
 namespace plasma {
 
 class PlasmaAllocator {
@@ -57,6 +59,7 @@ class PlasmaAllocator {
  private:
   static int64_t allocated_;
   static int64_t footprint_limit_;
+  static std::mutex mtx;
 };
 
 }  // namespace plasma
