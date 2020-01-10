@@ -76,14 +76,15 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
     ARROW_LOG(DEBUG) << "initial vmemcache success!";
 
     srand((unsigned int)time(NULL));
-
-    //try not use lambda function
-    threadPools[0]->enqueue( [& ] () {
+  }
+  // try not use lambda function
+      threadPools[0]->enqueue( [& ] () {
       while(true) {
-        if(evictionPolicy_->RemainingCapacity() > evictionPolicy_->Capacity() / 2) {
+        if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 2) {
+          ARROW_LOG(DEBUG)<<"start a eviction";
           std::vector<ObjectID> objIds;
           evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 2, &objIds);
-
+          ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
           std::vector<std::future<int>> ret;
           for(auto objId : objIds) {
             if(Exist(objId).ok())
@@ -96,23 +97,24 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
                 << "To evict an object it must have been sealed.";
               ARROW_CHECK(entry->ref_count == 0)
                 << "To evict an object, there must be no clients currently using it.";
-
+              entry->numaNodePostion = node;
               entry->state = ObjectState::PLASMA_EVICTED; //does state need lock?
               Put({objId}, {std::make_shared<arrow::Buffer>(
                 entry->pointer, entry->data_size + entry->metadata_size)}, node);
               PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
                 entry->pointer = nullptr;
-
+              ARROW_LOG(DEBUG)<<"Return";
               return 0;
             })
             );
           }
           for (int i=0; i< ret.size(); i++)
             ret[i].get();
+          ARROW_LOG(DEBUG)<<"Eviction done";
         }
       }
     });
-  }
+  ARROW_LOG(DEBUG) << "vmemcache store start!";
 
   return Status::OK();
 }
@@ -202,6 +204,28 @@ std::string VmemcacheStore::hex(char *id) {
 }
 
 Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
+                           std::vector<std::shared_ptr<Buffer>> buffers,
+                           ObjectTableEntry *entry) {
+  int total = ids.size();
+  
+  for (int i = 0; i < total; i++) {
+    auto id = ids[i];
+    auto buffer = buffers[i];
+    threadPools[entry->numaNodePostion]->enqueue( [&]() {
+      auto cache = caches[entry->numaNodePostion];
+      size_t *vSize = new size_t(0);
+      int ret = vmemcache_get(cache, id.data(), id.size(),
+       (void *)buffer->mutable_data(), buffer->size(), 0, vSize);
+      if(ret<= 0)
+        ARROW_LOG(WARNING) << "vmemcache get fails!";
+      entry->state = ObjectState::PLASMA_SEALED;
+    });
+  }
+
+  return Status::OK();
+}
+
+Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
                            std::vector<std::shared_ptr<Buffer>> buffers) {
   auto tic = std::chrono::steady_clock::now();
   int total = ids.size();
@@ -251,10 +275,10 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
     }
   }
 
-  for (int i = 0; i < total; i++) {
-    if (results[i].get() <= 0)
-      ARROW_LOG(DEBUG) << "Get " << i << " failed";
-  }
+  // for (int i = 0; i < total; i++) {
+  //   if (results[i].get() <= 0)
+  //     ARROW_LOG(DEBUG) << "Get " << i << " failed";
+  // }
 
   auto toc = std::chrono::steady_clock::now();
   std::chrono::duration<double> time_ = toc - tic;
@@ -275,8 +299,9 @@ Status VmemcacheStore::Exist(ObjectID id) {
   return Status::NotImplemented("aaa");
 }
 
-Status VmemcacheStore::RegisterEvictionPolicy(std::shared_ptr<EvictionPolicy> eviction_policy) {
+Status VmemcacheStore::RegisterEvictionPolicy(EvictionPolicy* eviction_policy) {
   evictionPolicy_ = eviction_policy;
+  return Status::OK();
 }
 
 // void VmemcacheStore::Evict(std::vector<ObjectID> &ids, std::vector<std::shared_ptr<Buffer>> &datas) {

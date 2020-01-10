@@ -28,7 +28,7 @@ Status HashTableStore::Connect(const std::string& endpoint) { return Status::OK(
 
 Status HashTableStore::Exist(ObjectID id) { return Status::OK(); }
 
-Status HashTableStore::RegisterEvictionPolicy(std::shared_ptr<EvictionPolicy> eviction_policy) {
+Status HashTableStore::RegisterEvictionPolicy(EvictionPolicy* eviction_policy) {
    return Status::OK(); 
 }
 
@@ -58,6 +58,13 @@ Status HashTableStore::Get(const std::vector<ObjectID>& ids,
   }
   return Status::OK();
 }
+
+Status HashTableStore::Get(const std::vector<ObjectID> &ids,
+             std::vector<std::shared_ptr<Buffer>> buffers,
+             ObjectTableEntry *entry) {
+  return Get(ids, buffers);
+}
+            
 
 REGISTER_EXTERNAL_STORE("hashtable", HashTableStore);
 

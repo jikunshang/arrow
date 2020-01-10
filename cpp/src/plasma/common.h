@@ -130,6 +130,9 @@ struct ObjectTableEntry {
   /// The digest of the object. Used to see if two objects are the same.
   unsigned char digest[kDigestSize];
 
+  // change this to #ifdef xxx
+  int8_t numaNodePostion;
+
 #ifdef PLASMA_CUDA
   /// IPC GPU handle to share with clients.
   std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;

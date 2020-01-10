@@ -206,7 +206,9 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           plasma_shared
                           ${PLASMA_LINK_LIBS}
                           ${PTHREAD_LIBRARY}
-                          vmemcache)
+                          vmemcache
+                          numa
+                          )
   endif(APPLE)
 endif()
 #

@@ -38,7 +38,7 @@ pushd ../../cpp
             -DARROW_HDFS=on \
             -DARROW_BOOST_USE_SHARED=off \
             -DARROW_PLASMA=on \
-            -DPLASMA_PYTHON=on \
+            -DPLASMA_PYTHON=off \
             -DARROW_JEMALLOC=off \
             -DARROW_WITH_BROTLI=off \
             -DARROW_WITH_LZ4=off \
