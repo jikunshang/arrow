@@ -1,96 +1,99 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
+#ifndef THREAD_POOL_H
+#define THREAD_POOL_H
 
-#include <condition_variable>
-#include <functional>
-#include <list>
+#include <vector>
+#include <queue>
 #include <memory>
-#include <mutex>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <future>
+#include <functional>
+#include <stdexcept>
+namespace plasma
+{
+class ThreadPool
+{
+public:
+  ThreadPool(size_t);
+  template <class F, class... Args>
+  auto enqueue(F &&f, Args &&... args)
+      -> std::future<typename std::result_of<F(Args...)>::type>;
+  ~ThreadPool();
 
-#include "arrow/util/logging.h"
-#include "libvmemcache.h"
-#include "plasma/client.h"
-#include "plasma/common.h"
-#include "plasma/external_store.h"
-#include "plasma/vmemcache_store.h"
+private:
+  // need to keep track of threads so we can join them
+  std::vector<std::thread> workers;
+  // the task queue
+  std::queue<std::function<void()>> tasks;
 
-namespace plasma {
-
-typedef std::function<void(int i, int j)> job_t0;
-typedef std::function<void(void*)> job_t;
-
-class WorkerThread {
- public:
-  WorkerThread(int _coreId) {
-    coreId = _coreId;
-    wantExit = false;
-    thread = std::unique_ptr<std::thread>(
-        new std::thread(std::bind(&WorkerThread::Entry, this, coreId)));
-  }
-
-  ~WorkerThread() {
-    {
-      std::lock_guard<std::mutex> lock(queueMutex);
-      wantExit = true;
-      queuePending.notify_one();
-    }
-    thread->join();
-  }
-
-  void addJob(job_t job, void* param) {
-    std::lock_guard<std::mutex> lock(queueMutex);
-    jobQueue.push_back(std::make_pair(job, param));
-    queuePending.notify_one();
-  }
-
- private:
-  void Entry(int coreId) {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(coreId, &cpuset);
-    job_t job;
-    void* param;
-
-    while (true) {
-      {
-        std::unique_lock<std::mutex> lock(queueMutex);
-        queuePending.wait(lock, [&]() { return wantExit || !jobQueue.empty(); });
-
-        if (wantExit) return;
-
-        job = jobQueue.front().first;
-        param = jobQueue.front().second;
-        jobQueue.pop_front();
-      }
-      job(param);
-    }
-  }
-
- private:
-  std::unique_ptr<std::thread> thread;
-  std::condition_variable queuePending;
-  std::mutex queueMutex;
-  std::list<std::pair<job_t, void*>>
-      jobQueue;  // jobQueue contains a std::function and it's param
-  bool wantExit;
-  int coreId;
-
-  WorkerThread(const WorkerThread&);             // no copying!
-  WorkerThread& operator=(const WorkerThread&);  // no copying!
+  // synchronization
+  std::mutex queue_mutex;
+  std::condition_variable condition;
+  bool stop;
 };
-}  // namespace plasma
+
+// the constructor just launches some amount of workers
+inline ThreadPool::ThreadPool(size_t threads)
+    : stop(false)
+{
+  for (size_t i = 0; i < threads; ++i)
+    workers.emplace_back(
+        [this] {
+          for (;;)
+          {
+            std::function<void()> task;
+
+            {
+              std::unique_lock<std::mutex> lock(this->queue_mutex);
+              this->condition.wait(lock,
+                                   [this] { return this->stop || !this->tasks.empty(); });
+              if (this->stop && this->tasks.empty())
+                return;
+              task = std::move(this->tasks.front());
+              this->tasks.pop();
+            }
+
+            task();
+          }
+        });
+}
+
+// add new work item to the pool
+template <class F, class... Args>
+auto ThreadPool::enqueue(F &&f, Args &&... args)
+    -> std::future<typename std::result_of<F(Args...)>::type>
+{
+  using return_type = typename std::result_of<F(Args...)>::type;
+
+  auto task = std::make_shared<std::packaged_task<return_type()>>(
+      std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+
+  std::future<return_type> res = task->get_future();
+  {
+    std::unique_lock<std::mutex> lock(queue_mutex);
+
+    // don't allow enqueueing after stopping the pool
+    if (stop)
+      throw std::runtime_error("enqueue on stopped ThreadPool");
+
+    tasks.emplace([task]() { (*task)(); });
+  }
+  condition.notify_one();
+  return res;
+}
+
+// the destructor joins all threads
+inline ThreadPool::~ThreadPool()
+{
+  {
+    std::unique_lock<std::mutex> lock(queue_mutex);
+    stop = true;
+  }
+  condition.notify_all();
+  for (std::thread &worker : workers)
+    worker.join();
+}
+
+} // namespace plasma
+#endif

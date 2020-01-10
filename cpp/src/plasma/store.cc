@@ -116,6 +116,8 @@ PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_
     : loop_(loop),
       eviction_policy_(&store_info_, PlasmaAllocator::GetFootprintLimit()),
       external_store_(external_store) {
+  if(external_store_)
+    external_store_->RegisterEvictionPolicy(&eviction_policy_);
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
 #ifdef PLASMA_CUDA
@@ -149,6 +151,38 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
   client->object_ids.insert(object_id);
 }
 
+uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
+                                     ptrdiff_t* offset) {
+  // Try to evict objects until there is enough space.
+  uint8_t* pointer = nullptr;
+  while (true) {
+    // Allocate space for the new object. We use memalign instead of malloc
+    // in order to align the allocated region to a 64-byte boundary. This is not
+    // strictly necessary, but it is an optimization that could speed up the
+    // computation of a hash of the data (see compute_object_hash_parallel in
+    // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
+    // it is not guaranteed that the corresponding pointer in the client will be
+    // 64-byte aligned, but in practice it often will be.
+    pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
+    if (pointer) {
+      break;
+    }
+    ARROW_LOG(WARNING) <<"have a unexpected eviction";
+    // Tell the eviction policy how much space we need to create this object.
+    std::vector<ObjectID> objects_to_evict;
+    bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
+    EvictObjects(objects_to_evict);
+    // Return an error to the client if not enough space could be freed to
+    // create the object.
+    if (!success) {
+      return nullptr;
+    }
+  }
+  GetMallocMapinfo(pointer, fd, map_size, offset);
+  ARROW_CHECK(*fd != -1);
+  return pointer;
+}
+
 // Allocate memory
 uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
                                      ptrdiff_t* offset, Client* client, bool is_create) {
@@ -175,6 +209,7 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     if (pointer) {
       break;
     }
+    ARROW_LOG(WARNING) <<"have a unexpected eviction";
     // Tell the eviction policy how much space we need to create this object.
     std::vector<ObjectID> objects_to_evict;
     bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
@@ -607,10 +642,43 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   //     return ObjectStatus::OBJECT_NOT_FOUND;
   //   }
   // }
-  return entry && (entry->state == ObjectState::PLASMA_SEALED ||
-                   entry->state == ObjectState::PLASMA_EVICTED)
-             ? ObjectStatus::OBJECT_FOUND
-             : ObjectStatus::OBJECT_NOT_FOUND;
+  if(!entry )
+    return ObjectStatus::OBJECT_NOT_FOUND;
+  if(entry->state == ObjectState::PLASMA_EVICTED) {
+    if(!external_store_)
+      return ObjectStatus::OBJECT_NOT_FOUND;
+    if (!external_store_->Exist(object_id).ok()) {
+      EraseFromObjectTable(object_id);
+      return ObjectStatus::OBJECT_NOT_FOUND;
+    }
+    else {
+      // this object is in external store and we need to prefetch it asynchronously
+      uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
+        &entry->fd,&entry->map_size, &entry->offset);
+      if (!pointer) {
+        ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
+                         << ", data_size=" << entry->data_size
+                         << ", metadata_size=" << entry->metadata_size
+                         << ", will send a reply of PlasmaError::OutOfMemory";
+        return ObjectStatus::OBJECT_NOT_FOUND;
+      }
+      entry->pointer = pointer;
+      std::vector<std::shared_ptr<Buffer>> buffers;
+      buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
+                                                    entry->data_size));
+      external_store_->Get({object_id}, buffers, entry);
+
+      return ObjectStatus::OBJECT_FOUND;
+    }
+  }
+  else if(entry->state == ObjectState::PLASMA_SEALED) {
+    return ObjectStatus::OBJECT_FOUND;
+  }
+
+  // return entry && (entry->state == ObjectState::PLASMA_SEALED ||
+  //                  entry->state == ObjectState::PLASMA_EVICTED)
+  //            ? ObjectStatus::OBJECT_FOUND
+  //            : ObjectStatus::OBJECT_NOT_FOUND;
 }
 
 void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
@@ -754,10 +822,17 @@ void PlasmaStore::ConnectClient(int listener_sock) {
   // Add a callback to handle events on this socket.
   // TODO(pcm): Check return value.
   loop_->AddFileEvent(client_fd, kEventLoopRead, [this, client](int events) {
-    Status s = ProcessMessage(client);
-    if (!s.ok()) {
-      ARROW_LOG(FATAL) << "Failed to process file event: " << s;
-    }
+    // std::future<int> ret = pool->enqueue([&, client]() {
+    // std::thread t = std::thread([&, client]() {
+      Status s = ProcessMessage(client);
+      if (!s.ok()) {
+        ARROW_LOG(FATAL) << "Failed to process file event: " << s;
+      }
+      return 0;
+    // });
+    // ret.get();
+    // t.join();
+    // });
   });
   ARROW_LOG(DEBUG) << "New connection with fd " << client_fd;
 }
@@ -1163,11 +1238,14 @@ class PlasmaStoreRunner {
   void Start(char* socket_name, std::string directory, bool hugepages_enabled,
              std::shared_ptr<ExternalStore> external_store) {
     // Create the event loop.
+    ARROW_LOG(DEBUG)<<"here0?";
     loop_.reset(new EventLoop);
+    ARROW_LOG(DEBUG)<<"here1?";
     store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled, socket_name,
                                  external_store));
+    ARROW_LOG(DEBUG)<<"here2?";
     plasma_config = store_->GetPlasmaStoreInfo();
-
+    ARROW_LOG(DEBUG)<<"here3?";
     // We are using a single memory-mapped file by mallocing and freeing a single
     // large amount of space up front. According to the documentation,
     // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
@@ -1177,9 +1255,10 @@ class PlasmaStoreRunner {
     ARROW_CHECK(pointer != nullptr);
     // This will unmap the file, but the next one created will be as large
     // as this one (this is an implementation detail of dlmalloc).
+    
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-
+    ARROW_LOG(DEBUG)<<"here2?";
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);

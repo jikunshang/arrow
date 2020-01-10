@@ -40,12 +40,16 @@ class HashTableStore : public ExternalStore {
   Status Get(const std::vector<ObjectID>& ids,
              std::vector<std::shared_ptr<Buffer>> buffers) override;
 
+  Status Get(const std::vector<ObjectID> &ids,
+             std::vector<std::shared_ptr<Buffer>> buffers,
+             ObjectTableEntry *entry) override;
+
   Status Put(const std::vector<ObjectID>& ids,
              const std::vector<std::shared_ptr<Buffer>>& data) override;
 
   Status Exist(ObjectID id) override;
 
-  Status RegisterEvictionPolicy(std::shared_ptr<EvictionPolicy> eviction_policy) override;
+  Status RegisterEvictionPolicy(EvictionPolicy* eviction_policy) override;
 
  private:
   typedef std::unordered_map<ObjectID, std::string> HashTable;

@@ -200,11 +200,13 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           plasma_shared
                           ${PLASMA_LINK_LIBS}
                           -Wl,--whole-archive
-                          flatbuffers::flatbuffers
+                          flatbuffers
                           -Wl,--no-whole-archive
-                          flatbuffers::flatbuffers
+                          flatbuffers
                           ${PTHREAD_LIBRARY}
-                          vmemcache)
+                          vmemcache
+                          numa
+                          )
   endif(APPLE)
 endif()
 #

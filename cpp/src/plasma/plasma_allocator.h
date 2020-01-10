@@ -56,10 +56,11 @@ class PlasmaAllocator {
   /// \return Number of bytes allocated by Plasma so far.
   static int64_t Allocated();
 
+  static std::mutex mtx;
  private:
   static int64_t allocated_;
   static int64_t footprint_limit_;
-  static std::mutex mtx;
+
 };
 
 }  // namespace plasma

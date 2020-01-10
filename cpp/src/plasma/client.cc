@@ -663,6 +663,7 @@ Status PlasmaClient::Impl::GetBuffers(
       // client is using. Cache the reference to the object.
       IncrementObjectCount(received_object_ids[i], object, true);
     } else {
+      ARROW_LOG(WARNING) << "object was not retrieved";
       // The object was not retrieved.  The caller can detect this condition
       // by checking the boolean value of the metadata/data buffers.
       DCHECK(!object_buffers[i].metadata);
