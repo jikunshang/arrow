@@ -81,16 +81,24 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
       threadPools[0]->enqueue( [& ] () {
       while(true) {
         if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 2) {
-          ARROW_LOG(DEBUG)<<"start a eviction";
           std::vector<ObjectID> objIds;
           evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 2, &objIds);
           ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
           std::vector<std::future<int>> ret;
           for(auto objId : objIds) {
-            if(Exist(objId).ok())
-              continue;
+            ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
+            if(Exist(objId).ok()){
+              //change states
+              ARROW_LOG(DEBUG)<<"This obj is already in external store, no need to evict again.";
+              auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
+              entry->state = ObjectState::PLASMA_EVICTED; 
+              PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
+              entry->pointer = nullptr;
+              continue;              
+            }
             int node = rand() % totalNumaNodes;
-            ret.push_back(threadPools[node]->enqueue( [&] () {
+            ret.push_back(threadPools[node]->enqueue( [&, objId] () {
+              // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
               auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
               ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
               ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
@@ -102,7 +110,12 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
               Put({objId}, {std::make_shared<arrow::Buffer>(
                 entry->pointer, entry->data_size + entry->metadata_size)}, node);
               PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
-                entry->pointer = nullptr;
+              entry->pointer = nullptr;
+              // int state = 1 ;
+              // if(entry->state == ObjectState::PLASMA_SEALED)
+              //   state = 2;
+              // else if(entry->state == ObjectState::PLASMA_EVICTED)
+              //   state = 3;
               ARROW_LOG(DEBUG)<<"Return";
               return 0;
             })
@@ -211,12 +224,14 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
   for (int i = 0; i < total; i++) {
     auto id = ids[i];
     auto buffer = buffers[i];
-    threadPools[entry->numaNodePostion]->enqueue( [&]() {
+    threadPools[entry->numaNodePostion]->enqueue( [&, entry, id, buffer]() {
       auto cache = caches[entry->numaNodePostion];
       size_t *vSize = new size_t(0);
-      int ret = vmemcache_get(cache, id.data(), id.size(),
+      int ret = 0;
+      ret = vmemcache_get(cache, id.data(), id.size(),
        (void *)buffer->mutable_data(), buffer->size(), 0, vSize);
-      if(ret<= 0)
+      ARROW_LOG(DEBUG) << "vmemcache get returns "<<ret;
+      if(ret <= 0)
         ARROW_LOG(WARNING) << "vmemcache get fails!";
       entry->state = ObjectState::PLASMA_SEALED;
     });
