@@ -51,6 +51,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <thread>
 
 #include "arrow/status.h"
 
@@ -487,8 +488,19 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // where entry == NULL, this will be called from SealObject.
       AddToClientObjectIds(object_id, entry, client);
     } else if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
+      auto tic = std::chrono::steady_clock::now();
+      while(entry->state == ObjectState::PLASMA_EVICTED) {
+        std::this_thread::sleep_for(std::chrono::microseconds(10));
+      }
+      auto toc = std::chrono::steady_clock::now();
+      std::chrono::duration<double> time_ = toc - tic;
+      ARROW_LOG(DEBUG) << "wait object ready takes " << time_.count() * 1000 << " ms";
+
+      PlasmaObject_init(&get_req->objects[object_id], entry);
+      get_req->num_satisfied += 1;
+      AddToClientObjectIds(object_id, entry, client);
       // Make sure the object pointer is not already allocated
-      ARROW_CHECK(!entry->pointer);
+      // ARROW_CHECK(!entry->pointer);
 
       // if (!external_store_->Exist(object_id).ok()) {
       //   ARROW_LOG(DEBUG) << "object id " << object_id.hex()
@@ -508,23 +520,23 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       //   continue;
       // }
 
-      entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
-                                      &entry->map_size, &entry->offset, client, false);
-      if (entry->pointer) {
-        entry->state = ObjectState::PLASMA_CREATED;
-        entry->create_time = std::time(nullptr);
-        eviction_policy_.ObjectCreated(object_id, client, false);
-        AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
-        evicted_ids.push_back(object_id);
-        evicted_entries.push_back(entry);
-        entry->state = ObjectState::PLASMA_SEALED;
-      } else {
-        // We are out of memory an cannot allocate memory for this object.
-        // Change the state of the object back to PLASMA_EVICTED so some
-        // other request can try again.
-        entry->state = ObjectState::PLASMA_EVICTED;
-        // will have some bug ?
-      }
+      // entry->pointer = AllocateMemory(entry->data_size + entry->metadata_size, &entry->fd,
+      //                                 &entry->map_size, &entry->offset, client, false);
+      // if (entry->pointer) {
+      //   entry->state = ObjectState::PLASMA_CREATED;
+      //   entry->create_time = std::time(nullptr);
+      //   eviction_policy_.ObjectCreated(object_id, client, false);
+      //   AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
+      //   evicted_ids.push_back(object_id);
+      //   evicted_entries.push_back(entry);
+      //   entry->state = ObjectState::PLASMA_SEALED;
+      // } else {
+      //   // We are out of memory an cannot allocate memory for this object.
+      //   // Change the state of the object back to PLASMA_EVICTED so some
+      //   // other request can try again.
+      //   entry->state = ObjectState::PLASMA_EVICTED;
+      //   // will have some bug ?
+      // }
     } else {
       // Add a placeholder plasma object to the get request to indicate that the
       // object is not present. This will be parsed by the client. We set the
@@ -645,13 +657,15 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   if(!entry )
     return ObjectStatus::OBJECT_NOT_FOUND;
   if(entry->state == ObjectState::PLASMA_EVICTED) {
-    if(!external_store_)
+    if(!external_store_) {
       return ObjectStatus::OBJECT_NOT_FOUND;
+    }
     if (!external_store_->Exist(object_id).ok()) {
       EraseFromObjectTable(object_id);
       return ObjectStatus::OBJECT_NOT_FOUND;
     }
     else {
+      ARROW_LOG(DEBUG)<<"Prefetch obj " << object_id.hex();
       // this object is in external store and we need to prefetch it asynchronously
       uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
         &entry->fd,&entry->map_size, &entry->offset);
@@ -674,7 +688,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   else if(entry->state == ObjectState::PLASMA_SEALED) {
     return ObjectStatus::OBJECT_FOUND;
   }
-
+  return ObjectStatus::OBJECT_NOT_FOUND;
   // return entry && (entry->state == ObjectState::PLASMA_SEALED ||
   //                  entry->state == ObjectState::PLASMA_EVICTED)
   //            ? ObjectStatus::OBJECT_FOUND
@@ -1258,7 +1272,6 @@ class PlasmaStoreRunner {
     
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-    ARROW_LOG(DEBUG)<<"here2?";
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
