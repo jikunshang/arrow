@@ -214,38 +214,38 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
   return pointer;
 }
 
-// Allocate memory
-uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
-                                     ptrdiff_t* offset) {
-  // Try to evict objects until there is enough space.
-  uint8_t* pointer = nullptr;
-  while (true) {
-    // Allocate space for the new object. We use memalign instead of malloc
-    // in order to align the allocated region to a 64-byte boundary. This is not
-    // strictly necessary, but it is an optimization that could speed up the
-    // computation of a hash of the data (see compute_object_hash_parallel in
-    // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
-    // it is not guaranteed that the corresponding pointer in the client will be
-    // 64-byte aligned, but in practice it often will be.
-    pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
-    if (pointer) {
-      break;
-    }
-    ARROW_LOG(WARNING) <<"have a unexpected eviction";
-    // Tell the eviction policy how much space we need to create this object.
-    std::vector<ObjectID> objects_to_evict;
-    bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
-    EvictObjects(objects_to_evict);
-    // Return an error to the client if not enough space could be freed to
-    // create the object.
-    if (!success) {
-      return nullptr;
-    }
-  }
-  GetMallocMapinfo(pointer, fd, map_size, offset);
-  ARROW_CHECK(*fd != -1);
-  return pointer;
-}
+// // Allocate memory
+// uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
+//                                      ptrdiff_t* offset) {
+//   // Try to evict objects until there is enough space.
+//   uint8_t* pointer = nullptr;
+//   while (true) {
+//     // Allocate space for the new object. We use memalign instead of malloc
+//     // in order to align the allocated region to a 64-byte boundary. This is not
+//     // strictly necessary, but it is an optimization that could speed up the
+//     // computation of a hash of the data (see compute_object_hash_parallel in
+//     // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
+//     // it is not guaranteed that the corresponding pointer in the client will be
+//     // 64-byte aligned, but in practice it often will be.
+//     pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
+//     if (pointer) {
+//       break;
+//     }
+//     ARROW_LOG(WARNING) <<"have a unexpected eviction";
+//     // Tell the eviction policy how much space we need to create this object.
+//     std::vector<ObjectID> objects_to_evict;
+//     bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
+//     EvictObjects(objects_to_evict);
+//     // Return an error to the client if not enough space could be freed to
+//     // create the object.
+//     if (!success) {
+//       return nullptr;
+//     }
+//   }
+//   GetMallocMapinfo(pointer, fd, map_size, offset);
+//   ARROW_CHECK(*fd != -1);
+//   return pointer;
+// }
 
 #ifdef PLASMA_CUDA
 Status PlasmaStore::AllocateCudaMemory(
