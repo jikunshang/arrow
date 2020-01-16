@@ -79,6 +79,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
   }
   // try not use lambda function
       threadPools[0]->enqueue( [& ] () {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
       while(true) {
         if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 2) {
           std::vector<ObjectID> objIds;
@@ -231,8 +232,9 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
       ret = vmemcache_get(cache, id.data(), id.size(),
        (void *)buffer->mutable_data(), buffer->size(), 0, vSize);
       ARROW_LOG(DEBUG) << "vmemcache get returns "<<ret;
-      if(ret <= 0)
-        ARROW_LOG(WARNING) << "vmemcache get fails!";
+      if(ret <= 0) {
+        ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();
+      }
       entry->state = ObjectState::PLASMA_SEALED;
     });
   }

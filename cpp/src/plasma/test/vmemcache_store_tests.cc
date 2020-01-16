@@ -63,7 +63,7 @@ public:
     std::string plasma_directory = external_test_executable.substr(
         0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
-                                 "/plasma-store-server -m 1024000 -e " +
+                                 "/plasma-store-server -m 5000000000 -e " +
                                  "vmemcache://size:100000000000 -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
@@ -147,54 +147,55 @@ protected:
   std::string store_socket_name_;
 };
 
-// TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
-//   std::vector<ObjectID> object_ids;
-//   std::string data(100 * 1024, 'x');
-//   std::string metadata;
-//   for (int i = 0; i < 20; i++) {
-//     ObjectID object_id = random_object_id();
+TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::vector<ObjectID> object_ids;
+  std::string data(100 * 1024, 'x');
+  std::string metadata;
+  for (int i = 0; i < 20; i++) {
+    ObjectID object_id = random_object_id();
 
-//     object_ids.push_back(object_id);
-//     // Test for object non-existence.
-//     bool has_object;
-//     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
-//     ASSERT_FALSE(has_object);
+    object_ids.push_back(object_id);
+    // Test for object non-existence.
+    bool has_object;
+    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_FALSE(has_object);
 
-//     // Test for the object being in local Plasma store.
-//     // Create and seal the object.
-//     ARROW_CHECK_OK(client_.CreateAndSeal(object_id, data, metadata));
-//     // Test that the client can get the object.
-//     ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
-//     ASSERT_TRUE(has_object);
-//     std::cerr << "this is " << i << "put" << std::endl;
-//   }
-//   std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-//   for (int i = 1; i < 20; i++) {
-//     // Since we are accessing objects sequentially, every object we
-//     // access would be a cache "miss" owing to LRU eviction.
-//     // Try and access the object from the plasma store first, and then try
-//     // external store on failure. This should succeed to fetch the object.
-//     // However, it may evict the next few objects.
-//     std::cerr << "this is " << i << "get" << std::endl;
-//     std::vector<ObjectBuffer> object_buffers;
-//     bool has_object = false;
-//     ARROW_CHECK_OK(client_.Contains(object_ids[i], &has_object));
-//     ASSERT_TRUE(has_object);
-//     ARROW_CHECK_OK(client_.Get({object_ids[i]}, -1, &object_buffers));
-//     ASSERT_EQ(object_buffers.size(), 1);
-//     ASSERT_EQ(object_buffers[0].device_num, 0);
-//     ASSERT_TRUE(object_buffers[0].data);
-//     AssertObjectBufferEqual(object_buffers[0], metadata, data);
-//   }
+    // Test for the object being in local Plasma store.
+    // Create and seal the object.
+    ARROW_CHECK_OK(client_.CreateAndSeal(object_id, data, metadata));
+    // Test that the client can get the object.
+    ARROW_CHECK_OK(client_.Contains(object_id, &has_object));
+    ASSERT_TRUE(has_object);
+    std::cerr << "this is " << i << "put" << std::endl;
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+  for (int i = 1; i < 20; i++) {
+    // Since we are accessing objects sequentially, every object we
+    // access would be a cache "miss" owing to LRU eviction.
+    // Try and access the object from the plasma store first, and then try
+    // external store on failure. This should succeed to fetch the object.
+    // However, it may evict the next few objects.
+    std::cerr << "this is " << i << "get" << std::endl;
+    std::vector<ObjectBuffer> object_buffers;
+    bool has_object = false;
+    ARROW_CHECK_OK(client_.Contains(object_ids[i], &has_object));
+    ASSERT_TRUE(has_object);
+    ARROW_CHECK_OK(client_.Get({object_ids[i]}, -1, &object_buffers));
+    ASSERT_EQ(object_buffers.size(), 1);
+    ASSERT_EQ(object_buffers[0].device_num, 0);
+    ASSERT_TRUE(object_buffers[0].data);
+    AssertObjectBufferEqual(object_buffers[0], metadata, data);
+  }
 
-//   // Make sure we still cannot fetch objects that do not exist
-//   std::vector<ObjectBuffer> object_buffers;
-//   ARROW_CHECK_OK(client_.Get({random_object_id()}, 100, &object_buffers));
-//   ASSERT_EQ(object_buffers.size(), 1);
-//   ASSERT_EQ(object_buffers[0].device_num, 0);
-//   ASSERT_EQ(object_buffers[0].data, nullptr);
-//   ASSERT_EQ(object_buffers[0].metadata, nullptr);
-// }
+  // Make sure we still cannot fetch objects that do not exist
+  std::vector<ObjectBuffer> object_buffers;
+  ARROW_CHECK_OK(client_.Get({random_object_id()}, 100, &object_buffers));
+  ASSERT_EQ(object_buffers.size(), 1);
+  ASSERT_EQ(object_buffers[0].device_num, 0);
+  ASSERT_EQ(object_buffers[0].data, nullptr);
+  ASSERT_EQ(object_buffers[0].metadata, nullptr);
+}
 
 //50 client, 20 objects, 10M per object, total 10GB data, plasma 1GB DRAM
 TEST_F(TestPlasmaStoreWithExternalVmem, MultiThreadEvictionTest) {
