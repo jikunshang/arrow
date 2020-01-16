@@ -637,7 +637,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
       return ObjectStatus::OBJECT_NOT_FOUND;
     }
     else {
-      ARROW_LOG(DEBUG)<<"Prefetch obj " << object_id.hex();
+      // ARROW_LOG(DEBUG)<<"Prefetch obj " << object_id.hex();
       // this object is in external store and we need to prefetch it asynchronously
       uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
         &entry->fd,&entry->map_size, &entry->offset);
@@ -671,8 +671,6 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
 void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
                               const std::vector<std::string>& digests) {
   std::vector<flatbuf::ObjectInfoT> infos;
-
-  ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
   for (size_t i = 0; i < object_ids.size(); ++i) {
     flatbuf::ObjectInfoT object_info;
     auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);

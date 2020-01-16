@@ -88,7 +88,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
           ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
           std::vector<std::future<int>> ret;
           for(auto objId : objIds) {
-            ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
+            // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
             if(Exist(objId).ok()){
               //change states
               ARROW_LOG(DEBUG)<<"This obj is already in external store, no need to evict again.";
@@ -100,7 +100,6 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
             }
             int node = rand() % totalNumaNodes;
             ret.push_back(threadPools[node]->enqueue( [&, objId] () {
-              // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
               auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
               ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
               ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
@@ -234,7 +233,7 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
       int ret = 0;
       ret = vmemcache_get(cache, id.data(), id.size(),
        (void *)buffer->mutable_data(), buffer->size(), 0, vSize);
-      ARROW_LOG(DEBUG) << "vmemcache get returns "<<ret;
+      // ARROW_LOG(DEBUG) << "vmemcache get returns "<<ret;
       if(ret <= 0) {
         ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();
       }
