@@ -118,7 +118,7 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
 endif()
 
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc" "vmemcache_store.cc")
-link_libraries(vmemcache numa boost_system)
+link_libraries(vmemcache numa )
 
 # We use static libraries for the plasma-store-server executable so that it can
 # be copied around and used in different locations.
