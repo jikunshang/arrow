@@ -63,8 +63,9 @@ public:
     std::string plasma_directory = external_test_executable.substr(
         0, external_test_executable.find_last_of('/'));
     std::string plasma_command = plasma_directory +
-                                 "/plasma-store-server -m 5000000000 -e " +
-                                 "vmemcache://size:100000000000 -s " + store_socket_name_ +
+                                 "/plasma-store-server -m 5000000000 " +
+                                 " -e vmemcache://size:100000000000 " +
+                                 " -s " + store_socket_name_ +
                                  " 1> /tmp/log.stdout 2> /tmp/log.stderr & " +
                                  "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
@@ -112,33 +113,33 @@ public:
               << std::endl;
 
 
-    // objStart = ((thread_id + 1) % thread_nums) * objects_per_thread;
-    // // int objStop = objStart + objects_per_thread - 1;
-    // std::vector<ObjectID> object_ids_get;
-    // for (int i = 0; i < objects_per_thread; i++)
-    //   object_ids_get.push_back(object_ids[objStart + i]);
-    // std::vector<ObjectBuffer> get_objects;
-    // // start
-    // tic = std::chrono::steady_clock::now();
-    // std::cout<<thread_id<<std::endl;
+    objStart = ((thread_id + 1) % thread_nums) * objects_per_thread;
+    // int objStop = objStart + objects_per_thread - 1;
+    std::vector<ObjectID> object_ids_get;
+    for (int i = 0; i < objects_per_thread; i++)
+      object_ids_get.push_back(object_ids[objStart + i]);
+    std::vector<ObjectBuffer> get_objects;
+    // start
+    tic = std::chrono::steady_clock::now();
+    std::cout<<thread_id<<std::endl;
 
-    // for(int i =0; i < objects_per_thread; i++){
-    //   std::vector<ObjectBuffer> get_objects;
-    //   bool has_object = false;
-    //   ARROW_CHECK_OK(client->Contains(object_ids_get[i], &has_object));
-    //   ASSERT_TRUE(has_object);
-    //   ARROW_CHECK_OK(client->Get({object_ids_get[i]}, -1, &get_objects));
-    //   ASSERT_EQ(get_objects.size(), 1);
-    //   ASSERT_EQ(get_objects[0].device_num, 0);
-    //   ASSERT_TRUE(get_objects[0].data);
-    //   AssertObjectBufferEqual(get_objects[0], metadata, data);
-    //   // ASSERT_EQ(memcmp(get_objects[0].data->data(), origin_buffer, data_size), 0);
-    // }
+    for(int i =0; i < objects_per_thread; i++){
+      std::vector<ObjectBuffer> get_objects;
+      bool has_object = false;
+      ARROW_CHECK_OK(client->Contains(object_ids_get[i], &has_object));
+      ASSERT_TRUE(has_object);
+      ARROW_CHECK_OK(client->Get({object_ids_get[i]}, -1, &get_objects));
+      ASSERT_EQ(get_objects.size(), 1);
+      ASSERT_EQ(get_objects[0].device_num, 0);
+      ASSERT_TRUE(get_objects[0].data);
+      AssertObjectBufferEqual(get_objects[0], metadata, data);
+      // ASSERT_EQ(memcmp(get_objects[0].data->data(), origin_buffer, data_size), 0);
+    }
 
-    // toc = std::chrono::steady_clock::now();
-    // time_ = toc - tic;
-    // std::cout << "Thread id : " << thread_id << " get and compare time: " << time_.count()
-    //           << " s." << std::endl;
+    toc = std::chrono::steady_clock::now();
+    time_ = toc - tic;
+    std::cout << "Thread id : " << thread_id << " get and compare time: " << time_.count()
+              << " s." << std::endl;
   }
 
 protected:

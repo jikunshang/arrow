@@ -82,6 +82,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       while(true) {
         if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 2) {
+          auto tic = std::chrono::steady_clock::now();
           std::vector<ObjectID> objIds;
           evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 2, &objIds);
           ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
@@ -124,7 +125,9 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
           }
           for (int i=0; i< ret.size(); i++)
             ret[i].get();
-          ARROW_LOG(DEBUG)<<"Eviction done";
+          auto toc = std::chrono::steady_clock::now();
+          std::chrono::duration<double> time_ = toc - tic;
+          ARROW_LOG(DEBUG)<<"Eviction done, takes" << time_.count() * 1000 << " ms";
         }
       }
     });

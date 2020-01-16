@@ -1109,11 +1109,11 @@ class PlasmaStoreRunner {
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
   std::vector<std::thread> threads(5);
-  for(int i=0; i< threads.size(); i++) {
-    threads[i] = std::thread([&] () {
-      io_context_.run();
-    });
-  }
+  // for(int i=0; i< threads.size(); i++) {
+  //   threads[i] = std::thread([&] () {
+  //     io_context_.run();
+  //   });
+  // }
     io_context_.run();
   }
 
