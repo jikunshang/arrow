@@ -186,6 +186,8 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
                                      ptrdiff_t* offset) {
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
+  bool waitFlag = false;
+  auto tic = std::chrono::steady_clock::now();
   while (true) {
     // Allocate space for the new object. We use memalign instead of malloc
     // in order to align the allocated region to a 64-byte boundary. This is not
@@ -198,16 +200,22 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     if (pointer) {
       break;
     }
-    ARROW_LOG(WARNING) <<"have a unexpected eviction";
-    // Tell the eviction policy how much space we need to create this object.
-    std::vector<ObjectID> objects_to_evict;
-    bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
-    EvictObjects(objects_to_evict);
-    // Return an error to the client if not enough space could be freed to
-    // create the object.
-    if (!success) {
-      return nullptr;
-    }
+    waitFlag = true;
+    // ARROW_LOG(WARNING) <<"have a unexpected eviction";
+    // // Tell the eviction policy how much space we need to create this object.
+    // std::vector<ObjectID> objects_to_evict;
+    // bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
+    // EvictObjects(objects_to_evict);
+    // // Return an error to the client if not enough space could be freed to
+    // // create the object.
+    // if (!success) {
+    //   return nullptr;
+    // }
+  }
+  if(waitFlag) {
+    auto toc = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_ = toc - tic;
+    ARROW_LOG(DEBUG)<<"wait free space  takes " << time_.count() * 1000 << " ms";
   }
   GetMallocMapinfo(pointer, fd, map_size, offset);
   ARROW_CHECK(*fd != -1);

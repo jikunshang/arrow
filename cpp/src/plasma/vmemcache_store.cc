@@ -81,10 +81,10 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
       threadPools[0]->enqueue( [& ] () {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       while(true) {
-        if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 2) {
+        if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 3 * 2) {
           auto tic = std::chrono::steady_clock::now();
           std::vector<ObjectID> objIds;
-          evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 2, &objIds);
+          evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 3, &objIds);
           ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
           std::vector<std::future<int>> ret;
           for(auto objId : objIds) {
