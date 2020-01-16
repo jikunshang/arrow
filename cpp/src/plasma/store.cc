@@ -44,6 +44,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <thread>
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -1024,7 +1025,12 @@ class PlasmaStoreRunner {
     // as this one (this is an implementation detail of dlmalloc).
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-
+  std::vector<std::thread> threads(5);
+  for(int i=0; i< threads.size(); i++) {
+    threads[i] = std::thread([&] () {
+      io_context_.run();
+    });
+  }
     io_context_.run();
   }
 
