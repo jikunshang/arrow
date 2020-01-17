@@ -77,6 +77,9 @@ if(NOT APPLE AND NOT MSVC)
       "-Wl,--no-undefined,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
+list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc" "vmemcache_store.cc")
+link_libraries(vmemcache numa )
+
 add_arrow_lib(plasma
               CMAKE_PACKAGE_NAME
               Plasma
@@ -84,6 +87,7 @@ add_arrow_lib(plasma
               plasma
               SOURCES
               ${PLASMA_SRCS}
+              ${PLASMA_EXTERNAL_STORE_SOURCES}
               OUTPUTS
               PLASMA_LIBRARIES
               DEPENDENCIES
@@ -117,8 +121,7 @@ if("${COMPILER_FAMILY}" STREQUAL "gcc")
   set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
-list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc" "vmemcache_store.cc")
-link_libraries(vmemcache numa )
+
 
 # We use static libraries for the plasma-store-server executable so that it can
 # be copied around and used in different locations.
@@ -251,6 +254,11 @@ add_plasma_test(test/external_store_tests
                 EXTRA_DEPENDENCIES
                 plasma-store-server)
 add_plasma_test(test/vmemcache_store_tests  
+                EXTRA_LINK_LIBS
+                ${PLASMA_TEST_LIBS}
+                EXTRA_DEPENDENCIES
+                plasma-store-server)
+add_plasma_test(test/vmemcache_store_benchmark  
                 EXTRA_LINK_LIBS
                 ${PLASMA_TEST_LIBS}
                 EXTRA_DEPENDENCIES

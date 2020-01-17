@@ -78,58 +78,58 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
     srand((unsigned int)time(NULL));
   }
   // try not use lambda function
-      threadPools[0]->enqueue( [& ] () {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      while(true) {
-        if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 3 * 2) {
-          auto tic = std::chrono::steady_clock::now();
-          std::vector<ObjectID> objIds;
-          evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 3, &objIds);
-          ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
-          std::vector<std::future<int>> ret;
-          for(auto objId : objIds) {
-            // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
-            if(Exist(objId).ok()){
-              //change states
-              ARROW_LOG(DEBUG)<<"This obj is already in external store, no need to evict again.";
-              auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
-              entry->state = ObjectState::PLASMA_EVICTED; 
-              PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
-              entry->pointer = nullptr;
-              continue;              
-            }
-            int node = rand() % totalNumaNodes;
-            ret.push_back(threadPools[node]->enqueue( [&, objId] () {
-              auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
-              ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
-              ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
-                << "To evict an object it must have been sealed.";
-              ARROW_CHECK(entry->ref_count == 0)
-                << "To evict an object, there must be no clients currently using it.";
-              entry->numaNodePostion = node;
-              entry->state = ObjectState::PLASMA_EVICTED; //does state need lock?
-              Put({objId}, {std::make_shared<arrow::Buffer>(
-                entry->pointer, entry->data_size + entry->metadata_size)}, node);
-              PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
-              entry->pointer = nullptr;
-              // int state = 1 ;
-              // if(entry->state == ObjectState::PLASMA_SEALED)
-              //   state = 2;
-              // else if(entry->state == ObjectState::PLASMA_EVICTED)
-              //   state = 3;
-              ARROW_LOG(DEBUG)<<"Return";
-              return 0;
-            })
-            );
-          }
-          for (int i=0; i< ret.size(); i++)
-            ret[i].get();
-          auto toc = std::chrono::steady_clock::now();
-          std::chrono::duration<double> time_ = toc - tic;
-          ARROW_LOG(DEBUG)<<"Eviction done, takes" << time_.count() * 1000 << " ms";
-        }
-      }
-    });
+    //   threadPools[0]->enqueue( [& ] () {
+    //   std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    //   while(true) {
+    //     if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 3 * 2) {
+    //       auto tic = std::chrono::steady_clock::now();
+    //       std::vector<ObjectID> objIds;
+    //       evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 3, &objIds);
+    //       ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
+    //       std::vector<std::future<int>> ret;
+    //       for(auto objId : objIds) {
+    //         // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
+    //         if(Exist(objId).ok()){
+    //           //change states
+    //           ARROW_LOG(DEBUG)<<"This obj is already in external store, no need to evict again.";
+    //           auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
+    //           entry->state = ObjectState::PLASMA_EVICTED; 
+    //           PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
+    //           entry->pointer = nullptr;
+    //           continue;              
+    //         }
+    //         int node = rand() % totalNumaNodes;
+    //         ret.push_back(threadPools[node]->enqueue( [&, objId] () {
+    //           auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
+    //           ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
+    //           ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
+    //             << "To evict an object it must have been sealed.";
+    //           ARROW_CHECK(entry->ref_count == 0)
+    //             << "To evict an object, there must be no clients currently using it.";
+    //           entry->numaNodePostion = node;
+    //           entry->state = ObjectState::PLASMA_EVICTED; //does state need lock?
+    //           Put({objId}, {std::make_shared<arrow::Buffer>(
+    //             entry->pointer, entry->data_size + entry->metadata_size)}, node);
+    //           PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
+    //           entry->pointer = nullptr;
+    //           // int state = 1 ;
+    //           // if(entry->state == ObjectState::PLASMA_SEALED)
+    //           //   state = 2;
+    //           // else if(entry->state == ObjectState::PLASMA_EVICTED)
+    //           //   state = 3;
+    //           ARROW_LOG(DEBUG)<<"Return";
+    //           return 0;
+    //         })
+    //         );
+    //       }
+    //       for (int i=0; i< ret.size(); i++)
+    //         ret[i].get();
+    //       auto toc = std::chrono::steady_clock::now();
+    //       std::chrono::duration<double> time_ = toc - tic;
+    //       ARROW_LOG(DEBUG)<<"Eviction done, takes" << time_.count() * 1000 << " ms";
+    //     }
+    //   }
+    // });
   ARROW_LOG(DEBUG) << "vmemcache store start!";
 
   return Status::OK();
@@ -177,6 +177,7 @@ Status VmemcacheStore::Put(const std::vector<ObjectID> &ids,
                                    data[i]->size());
     results.emplace_back(pool->enqueue([&, param]() {
       if (param != nullptr) {
+        auto tic_ = std::chrono::steady_clock::now();
         int ret =
             vmemcache_put(param->cache, (char *)(param->key), param->keySize,
                           (char *)(param->value), param->valueSize);
@@ -186,6 +187,11 @@ Status VmemcacheStore::Put(const std::vector<ObjectID> &ids,
           ARROW_LOG(DEBUG) << "vmemcache_put error:" << vmemcache_errormsg();
         delete[](char *) param->key;
         delete param;
+
+        auto toc_ = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_ = toc_ - tic_;
+        ARROW_LOG(DEBUG) << "Put 1 " << "objects takes "
+                   << time_.count() * 1000 << " ms";
 
         return ret;
       } else {
