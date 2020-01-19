@@ -91,7 +91,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
             // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
             if(Exist(objId).ok()){
               //change states
-              ARROW_LOG(DEBUG)<<"This obj is already in external store, no need to evict again.";
+              // ARROW_LOG(DEBUG)<<"This obj is already in external store, no need to evict again.";
               auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
               entry->state = ObjectState::PLASMA_EVICTED; 
               PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
@@ -112,12 +112,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
                 entry->pointer, entry->data_size + entry->metadata_size)}, node);
               PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
               entry->pointer = nullptr;
-              // int state = 1 ;
-              // if(entry->state == ObjectState::PLASMA_SEALED)
-              //   state = 2;
-              // else if(entry->state == ObjectState::PLASMA_EVICTED)
-              //   state = 3;
-              ARROW_LOG(DEBUG)<<"Return";
+              // ARROW_LOG(DEBUG)<<"Return";
               return 0;
             })
             );
