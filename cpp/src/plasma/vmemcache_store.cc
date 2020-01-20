@@ -99,9 +99,13 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
               continue;              
             }
             int node = rand() % totalNumaNodes;
-            ret.push_back(threadPools[node]->enqueue( [&, objId] () {
+            ret.push_back(threadPools[node]->enqueue( [&, objId, node] () {
               auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
-              ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
+              if(entry == nullptr) {
+                ARROW_LOG(WARNING) << "try to evict an object not exist in object table!!!";
+                return -1;
+              }
+              // ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
               ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
                 << "To evict an object it must have been sealed.";
               ARROW_CHECK(entry->ref_count == 0)
