@@ -48,7 +48,7 @@ void AssertObjectBufferEqual(const ObjectBuffer &object_buffer,
                              const std::string &metadata,
                              const std::string &data) {
   arrow::AssertBufferEqual(*object_buffer.metadata, metadata);
-  ARROW_LOG(DEBUG) << "metadata";
+  // ARROW_LOG(DEBUG) << "metadata";
   arrow::AssertBufferEqual(*object_buffer.data, data);
 }
 
@@ -105,6 +105,7 @@ public:
     for (auto object_id : object_ids_create) {
       std::shared_ptr<Buffer> data_buffer;
       ARROW_CHECK_OK(client->CreateAndSeal(object_id, data, metadata));
+      client->Release(object_id);
     }
 
     auto toc = std::chrono::steady_clock::now();
@@ -134,6 +135,7 @@ public:
       ASSERT_TRUE(get_objects[0].data);
       AssertObjectBufferEqual(get_objects[0], metadata, data);
       // ASSERT_EQ(memcmp(get_objects[0].data->data(), origin_buffer, data_size), 0);
+      client->Release(object_ids_get[i]);
     }
 
     toc = std::chrono::steady_clock::now();

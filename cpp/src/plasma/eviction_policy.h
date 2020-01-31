@@ -113,6 +113,8 @@ class EvictionPolicy {
   /// \param is_create Whether we are creating a new object (vs reading an object).
   virtual void ObjectCreated(const ObjectID& object_id, Client* client, bool is_create);
 
+  virtual void RemoveObject(ObjectID &objecct_id) ;
+
   /// Set quota for a client.
   ///
   /// \param client The pointer to the client.

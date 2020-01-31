@@ -100,11 +100,15 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
   int64_t bytes_evicted =
       cache_.ChooseObjectsToEvict(num_bytes_required, objects_to_evict);
   ARROW_LOG(DEBUG) << DebugString();
-  // Update the LRU cache.
-  for (auto& object_id : *objects_to_evict) {
-    cache_.Remove(object_id);
-  }
+  // // Update the LRU cache.
+  // for (auto& object_id : *objects_to_evict) {
+  //   cache_.Remove(object_id);
+  // }
   return bytes_evicted;
+}
+
+void EvictionPolicy::RemoveObject(ObjectID &objecct_id) {
+  cache_.Remove(objecct_id);
 }
 
 void EvictionPolicy::ObjectCreated(const ObjectID& object_id, Client* client,

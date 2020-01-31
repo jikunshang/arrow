@@ -105,6 +105,11 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
                 ARROW_LOG(WARNING) << "try to evict an object not exist in object table!!!";
                 return -1;
               }
+              if(!entry->evictable) {
+                ARROW_LOG(WARNING) << "this object can't evict now due to unreleased";
+                return -1;
+              }
+              entry->mtx.lock();
               // ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
               ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
                 << "To evict an object it must have been sealed.";
@@ -116,6 +121,8 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
                 entry->pointer, entry->data_size + entry->metadata_size)}, node);
               PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
               entry->pointer = nullptr;
+              evictionPolicy_->RemoveObject(objId);
+              entry->mtx.unlock();    // when to unlock?
               // ARROW_LOG(DEBUG)<<"Return";
               return 0;
             })

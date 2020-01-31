@@ -609,6 +609,7 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
   ARROW_CHECK(client->RemoveObjectIDIfExists(object_id));
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   ARROW_CHECK(entry != nullptr);
+  entry->evictable = true;
   DecreaseObjectRefCount(object_id, entry);
 }
 
@@ -626,8 +627,50 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   //     return ObjectStatus::OBJECT_NOT_FOUND;
   //   }
   // }
+  ObjectStatus status = ObjectStatus::OBJECT_NOT_FOUND;
+
   if(!entry )
-    return ObjectStatus::OBJECT_NOT_FOUND;
+    return status;
+
+  {
+    entry->mtx.lock();
+    if(entry->state == ObjectState::PLASMA_EVICTED) {
+      if(!external_store_) {
+        status = ObjectStatus::OBJECT_NOT_FOUND;
+      }
+      if (!external_store_->Exist(object_id).ok()) {
+        EraseFromObjectTable(object_id);
+        status = ObjectStatus::OBJECT_NOT_FOUND;
+      }
+      else {
+        entry->evictable = false;
+        uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
+          &entry->fd,&entry->map_size, &entry->offset);
+        if (!pointer) {
+          ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
+                         << ", data_size=" << entry->data_size
+                         << ", metadata_size=" << entry->metadata_size
+                         << ", will send a reply of PlasmaError::OutOfMemory";
+          status = ObjectStatus::OBJECT_NOT_FOUND;
+        } else {
+          entry->pointer = pointer;
+          std::vector<std::shared_ptr<Buffer>> buffers;
+          buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
+                                                    entry->data_size));
+          external_store_->Get({object_id}, buffers, entry);
+          status = ObjectStatus::OBJECT_FOUND;
+        }
+
+      }
+
+    } else if(entry->state == ObjectState::PLASMA_SEALED) {
+      //todo: this object should not be evicted until get done
+      status = ObjectStatus::OBJECT_FOUND;
+    }
+
+    entry->mtx.unlock();
+  }
+
   if(entry->state == ObjectState::PLASMA_EVICTED) {
     if(!external_store_) {
       return ObjectStatus::OBJECT_NOT_FOUND;

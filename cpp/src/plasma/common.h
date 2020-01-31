@@ -23,6 +23,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <mutex>
 // TODO(pcm): Convert getopt and sscanf in the store to use more idiomatic C++
 // and get rid of the next three lines:
 #ifndef __STDC_FORMAT_MACROS
@@ -132,6 +133,11 @@ struct ObjectTableEntry {
 
   // change this to #ifdef xxx
   int8_t numaNodePostion;
+
+  /// Mutex for evict
+  std::mutex mtx;
+  /// evict status
+  bool evictable;
 
 #ifdef PLASMA_CUDA
   /// IPC GPU handle to share with clients.
