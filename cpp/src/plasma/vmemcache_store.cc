@@ -283,8 +283,7 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
                                     param->vbuf, param->vbufsize, param->offset,
                                     param->vsize);
             // ARROW_LOG(DEBUG)
-            //     << "vmemcache_get " << hex((char *)(param->key)) << " returns
-            //     "
+            //     << "vmemcache_get " << hex((char *)(param->key)) << " returns "
             //     << ret << " vsize " << *(param->vsize);
             delete[](char *) param->key;
             delete (getParam *)param;

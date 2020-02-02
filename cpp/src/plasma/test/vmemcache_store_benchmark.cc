@@ -57,8 +57,18 @@ TEST_F(TestPlasmaStoreBenchMark, EvictionTest) {
         memset(ptr, i % 256, buffer_size );
         buffers.push_back(std::make_shared<arrow::Buffer>(ptr, buffer_size));
     }
-
+    std::vector<std::shared_ptr<Buffer>> getBuffers;
     vmemcacheStore.Put(ids, buffers);
+    for(int i=0; i< total; i++) {
+        uint8_t* ptr = (uint8_t*)malloc(buffer_size);
+        getBuffers.emplace_back(new arrow::MutableBuffer(ptr, buffer_size));
+    }
+    vmemcacheStore.Get(ids, getBuffers);
+
+    for(int i=0; i< total; i++) {
+        if(memcmp(buffers[i]->data(), getBuffers[i]->data(), buffer_size) !=0 )
+            std::cout<<"vmemcache_get error!"<<std::endl;
+    }
 
 }
 }
