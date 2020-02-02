@@ -670,40 +670,40 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
 
     entry->mtx.unlock();
   }
+  return status;
+  // if(entry->state == ObjectState::PLASMA_EVICTED) {
+  //   if(!external_store_) {
+  //     return ObjectStatus::OBJECT_NOT_FOUND;
+  //   }
+  //   if (!external_store_->Exist(object_id).ok()) {
+  //     EraseFromObjectTable(object_id);
+  //     return ObjectStatus::OBJECT_NOT_FOUND;
+  //   }
+  //   else {
+  //     // ARROW_LOG(DEBUG)<<"Prefetch obj " << object_id.hex();
+  //     // this object is in external store and we need to prefetch it asynchronously
+  //     uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
+  //       &entry->fd,&entry->map_size, &entry->offset);
+  //     if (!pointer) {
+  //       ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
+  //                        << ", data_size=" << entry->data_size
+  //                        << ", metadata_size=" << entry->metadata_size
+  //                        << ", will send a reply of PlasmaError::OutOfMemory";
+  //       return ObjectStatus::OBJECT_NOT_FOUND;
+  //     }
+  //     entry->pointer = pointer;
+  //     std::vector<std::shared_ptr<Buffer>> buffers;
+  //     buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
+  //                                                   entry->data_size));
+  //     external_store_->Get({object_id}, buffers, entry);
 
-  if(entry->state == ObjectState::PLASMA_EVICTED) {
-    if(!external_store_) {
-      return ObjectStatus::OBJECT_NOT_FOUND;
-    }
-    if (!external_store_->Exist(object_id).ok()) {
-      EraseFromObjectTable(object_id);
-      return ObjectStatus::OBJECT_NOT_FOUND;
-    }
-    else {
-      // ARROW_LOG(DEBUG)<<"Prefetch obj " << object_id.hex();
-      // this object is in external store and we need to prefetch it asynchronously
-      uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
-        &entry->fd,&entry->map_size, &entry->offset);
-      if (!pointer) {
-        ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
-                         << ", data_size=" << entry->data_size
-                         << ", metadata_size=" << entry->metadata_size
-                         << ", will send a reply of PlasmaError::OutOfMemory";
-        return ObjectStatus::OBJECT_NOT_FOUND;
-      }
-      entry->pointer = pointer;
-      std::vector<std::shared_ptr<Buffer>> buffers;
-      buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
-                                                    entry->data_size));
-      external_store_->Get({object_id}, buffers, entry);
-
-      return ObjectStatus::OBJECT_FOUND;
-    }
-  }
-  else if(entry->state == ObjectState::PLASMA_SEALED) {
-    return ObjectStatus::OBJECT_FOUND;
-  }
-  return ObjectStatus::OBJECT_NOT_FOUND;
+  //     return ObjectStatus::OBJECT_FOUND;
+  //   }
+  // }
+  // else if(entry->state == ObjectState::PLASMA_SEALED) {
+  //   return ObjectStatus::OBJECT_FOUND;
+  // }
+  // return ObjectStatus::OBJECT_NOT_FOUND;
   // return entry && (entry->state == ObjectState::PLASMA_SEALED ||
   //                  entry->state == ObjectState::PLASMA_EVICTED)
   //            ? ObjectStatus::OBJECT_FOUND
