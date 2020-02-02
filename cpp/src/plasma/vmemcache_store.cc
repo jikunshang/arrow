@@ -299,10 +299,10 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
     }
   }
 
-  // for (int i = 0; i < total; i++) {
-  //   if (results[i].get() <= 0)
-  //     ARROW_LOG(DEBUG) << "Get " << i << " failed";
-  // }
+  for (int i = 0; i < total; i++) {
+    if (results[i].get() <= 0)
+      ARROW_LOG(DEBUG) << "Get " << i << " failed";
+  }
 
   auto toc = std::chrono::steady_clock::now();
   std::chrono::duration<double> time_ = toc - tic;

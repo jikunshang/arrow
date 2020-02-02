@@ -58,17 +58,26 @@ TEST_F(TestPlasmaStoreBenchMark, EvictionTest) {
         buffers.push_back(std::make_shared<arrow::Buffer>(ptr, buffer_size));
     }
     std::vector<std::shared_ptr<Buffer>> getBuffers;
-    vmemcacheStore.Put(ids, buffers);
     for(int i=0; i< total; i++) {
         uint8_t* ptr = (uint8_t*)malloc(buffer_size);
         getBuffers.emplace_back(new arrow::MutableBuffer(ptr, buffer_size));
     }
+
+
+    vmemcacheStore.Put(ids, buffers);
+
+    auto tic = std::chrono::steady_clock::now(); 
     vmemcacheStore.Get(ids, getBuffers);
 
     for(int i=0; i< total; i++) {
         if(memcmp(buffers[i]->data(), getBuffers[i]->data(), buffer_size) !=0 )
             std::cout<<"vmemcache_get error!"<<std::endl;
     }
+
+    auto toc = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_ = toc - tic;
+    ARROW_LOG(DEBUG) << "Get and check " << total << " objects takes "
+                   << time_.count() * 1000 << " ms";
 
 }
 }
