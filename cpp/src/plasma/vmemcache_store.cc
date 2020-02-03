@@ -96,6 +96,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
               entry->state = ObjectState::PLASMA_EVICTED; 
               PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
               entry->pointer = nullptr;
+              evictionPolicy_->RemoveObject(objId);
               continue;              
             }
             int node = rand() % totalNumaNodes;

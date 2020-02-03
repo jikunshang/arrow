@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <iostream>
 
 namespace plasma {
 
@@ -107,10 +108,6 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
   return bytes_evicted;
 }
 
-void EvictionPolicy::RemoveObject(ObjectID &objecct_id) {
-  cache_.Remove(objecct_id);
-}
-
 void EvictionPolicy::ObjectCreated(const ObjectID& object_id, Client* client,
                                    bool is_create) {
   cache_.Add(object_id, GetObjectSize(object_id));
@@ -158,9 +155,16 @@ void EvictionPolicy::EndObjectAccess(const ObjectID& object_id) {
   pinned_memory_bytes_ -= size;
 }
 
+void EvictionPolicy::RemoveObject(ObjectID& object_id) {
+  // If the object is in the LRU cache, remove it.
+  cache_.Remove(object_id);
+  std::cout<<"there are "<<cache_.Capacity()<<std::endl;
+}
+
 void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
   // If the object is in the LRU cache, remove it.
   cache_.Remove(object_id);
+  std::cout<<"there are "<<cache_.RemainingCapacity()<<std::endl;
 }
 
 void EvictionPolicy::RefreshObjects(const std::vector<ObjectID>& object_ids) {
