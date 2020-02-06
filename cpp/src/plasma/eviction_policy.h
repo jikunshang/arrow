@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <mutex>
 
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -88,6 +89,8 @@ class LRUCache {
   int64_t num_evictions_total_;
   /// The number of bytes evicted from this cache.
   int64_t bytes_evicted_total_;
+  /// mutex for multi thread race condition
+  std::mutex cache_mtx_;
 };
 
 /// The eviction policy.
@@ -213,6 +216,8 @@ class EvictionPolicy {
   PlasmaStoreInfo* store_info_;
   /// Datastructure for the LRU cache.
   LRUCache cache_;
+  /// mutex for multi thread race condition
+  std::mutex mtx;
 };
 
 }  // namespace plasma

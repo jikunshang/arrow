@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <mutex>
 
 #include "plasma/common.h"
 #include "plasma/external_store.h"
@@ -249,6 +250,8 @@ class PlasmaStore {
   io::PlasmaAcceptor acceptor_;
   /// The stream to listen on for new clients.
   io::PlasmaStream stream_;
+
+  std::mutex mtx;
 };
 
 }  // namespace plasma

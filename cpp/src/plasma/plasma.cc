@@ -27,6 +27,7 @@ ObjectTableEntry::~ObjectTableEntry() { pointer = nullptr; }
 
 ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
                                       const ObjectID& object_id) {
+  std::lock_guard<std::mutex> lock_guard(entry_mtx);
   auto it = store_info->objects.find(object_id);
   if (it == store_info->objects.end()) {
     return NULL;

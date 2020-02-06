@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <mutex>
 
 #include "plasma/compat.h"
 
@@ -36,6 +37,8 @@ namespace plasma {
 
 /// Allocation granularity used in plasma for object allocation.
 constexpr int64_t kBlockSize = 64;
+
+static std::mutex entry_mtx;
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {

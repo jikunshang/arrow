@@ -95,6 +95,8 @@ public:
 
     std::string data(10 * 1024 * 1024, 'x');
     std::string metadata;
+    uint8_t metadata_[] = {5};
+    int64_t metadata_size = sizeof(metadata_);
 
     int objStart = (thread_id  ) * objects_per_thread;
     std::vector<ObjectID> object_ids_create;
@@ -105,6 +107,11 @@ public:
     for (auto object_id : object_ids_create) {
       std::shared_ptr<Buffer> data_buffer;
       ARROW_CHECK_OK(client->CreateAndSeal(object_id, data, metadata));
+      // ARROW_CHECK_OK(client->Create(object_id, data_size, metadata_, metadata_size, &data_buffer));
+      // for (size_t i = 0; i < data.size(); i++) {
+      //   data_buffer->mutable_data()[i] = data[i];
+      // }
+      // ARROW_CHECK_OK(client->Seal(object_id));
       client->Release(object_id);
     }
 
@@ -143,29 +150,29 @@ public:
     std::cout << "Thread id : " << thread_id << " get and compare time: " << time_.count()
               << " s." << std::endl;
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    // std::this_thread::sleep_for(std::chrono::seconds(2));
     
-    tic = std::chrono::steady_clock::now();
-    std::cout<<"read second "<<thread_id<<std::endl;
+    // tic = std::chrono::steady_clock::now();
+    // std::cout<<"read second "<<thread_id<<std::endl;
 
-    for(int i =0; i < objects_per_thread; i++){
-      std::vector<ObjectBuffer> get_objects;
-      bool has_object = false;
-      ARROW_CHECK_OK(client->Contains(object_ids_get[i], &has_object));
-      ASSERT_TRUE(has_object);
-      ARROW_CHECK_OK(client->Get({object_ids_get[i]}, -1, &get_objects));
-      ASSERT_EQ(get_objects.size(), 1);
-      ASSERT_EQ(get_objects[0].device_num, 0);
-      ASSERT_TRUE(get_objects[0].data);
-      AssertObjectBufferEqual(get_objects[0], metadata, data);
-      // ASSERT_EQ(memcmp(get_objects[0].data->data(), origin_buffer, data_size), 0);
-      client->Release(object_ids_get[i]);
-    }
+    // for(int i =0; i < objects_per_thread; i++){
+    //   std::vector<ObjectBuffer> get_objects;
+    //   bool has_object = false;
+    //   ARROW_CHECK_OK(client->Contains(object_ids_get[i], &has_object));
+    //   ASSERT_TRUE(has_object);
+    //   ARROW_CHECK_OK(client->Get({object_ids_get[i]}, -1, &get_objects));
+    //   ASSERT_EQ(get_objects.size(), 1);
+    //   ASSERT_EQ(get_objects[0].device_num, 0);
+    //   ASSERT_TRUE(get_objects[0].data);
+    //   AssertObjectBufferEqual(get_objects[0], metadata, data);
+    //   // ASSERT_EQ(memcmp(get_objects[0].data->data(), origin_buffer, data_size), 0);
+    //   client->Release(object_ids_get[i]);
+    // }
 
-    toc = std::chrono::steady_clock::now();
-    time_ = toc - tic;
-    std::cout << "Thread id : " << thread_id << " second get and compare time: " << time_.count()
-              << " s." << std::endl;
+    // toc = std::chrono::steady_clock::now();
+    // time_ = toc - tic;
+    // std::cout << "Thread id : " << thread_id << " second get and compare time: " << time_.count()
+    //           << " s." << std::endl;
 
   }
 
@@ -234,7 +241,7 @@ TEST_F(TestPlasmaStoreWithExternalVmem, EvictionTest) {
     ASSERT_TRUE(has_object);
     std::cerr << "this is " << i << "put" << std::endl;
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(2000));
   for (int i = 1; i < 20; i++) {
     // Since we are accessing objects sequentially, every object we
     // access would be a cache "miss" owing to LRU eviction.
@@ -289,6 +296,18 @@ TEST_F(TestPlasmaStoreWithExternalVmem, MultiThreadEvictionTest) {
   auto toc = std::chrono::steady_clock::now();
   time_ = toc - tic;
   std::cout << "total write time: " << time_.count() << " ms" << std::endl;
+
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+  tic = std::chrono::steady_clock::now();
+  for (int i = 0; i < thread_nums; i++) {
+    threads[i] = std::thread(&TestPlasmaStoreWithExternalVmem::Thread_Func_Read, clients[i], object_Ids, i,
+                             thread_nums, objects_per_thread, data_size);
+  }
+
+  for (int i = 0; i < thread_nums; i++) threads[i].join();
+  toc = std::chrono::steady_clock::now();
+  time_ = toc - tic;
+  std::cout << "total read time: " << time_.count() << " ms" << std::endl;
 
 }
 } // namespace plasma

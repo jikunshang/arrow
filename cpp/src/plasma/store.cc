@@ -157,6 +157,7 @@ PlasmaStore::PlasmaStore(asio::io_context& io_context, std::string directory,
     external_store_->RegisterEvictionPolicy(&eviction_policy_);
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
+  store_info_.objects.reserve(5000);
 #ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
@@ -202,15 +203,6 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     }
     waitFlag = true;
     // ARROW_LOG(WARNING) <<"have a unexpected eviction";
-    // // Tell the eviction policy how much space we need to create this object.
-    // std::vector<ObjectID> objects_to_evict;
-    // bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
-    // EvictObjects(objects_to_evict);
-    // // Return an error to the client if not enough space could be freed to
-    // // create the object.
-    // if (!success) {
-    //   return nullptr;
-    // }
   }
   if(waitFlag) {
     auto toc = std::chrono::steady_clock::now();
@@ -221,39 +213,6 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
   ARROW_CHECK(*fd != -1);
   return pointer;
 }
-
-// // Allocate memory
-// uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
-//                                      ptrdiff_t* offset) {
-//   // Try to evict objects until there is enough space.
-//   uint8_t* pointer = nullptr;
-//   while (true) {
-//     // Allocate space for the new object. We use memalign instead of malloc
-//     // in order to align the allocated region to a 64-byte boundary. This is not
-//     // strictly necessary, but it is an optimization that could speed up the
-//     // computation of a hash of the data (see compute_object_hash_parallel in
-//     // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
-//     // it is not guaranteed that the corresponding pointer in the client will be
-//     // 64-byte aligned, but in practice it often will be.
-//     pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
-//     if (pointer) {
-//       break;
-//     }
-//     ARROW_LOG(WARNING) <<"have a unexpected eviction";
-//     // Tell the eviction policy how much space we need to create this object.
-//     std::vector<ObjectID> objects_to_evict;
-//     bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
-//     EvictObjects(objects_to_evict);
-//     // Return an error to the client if not enough space could be freed to
-//     // create the object.
-//     if (!success) {
-//       return nullptr;
-//     }
-//   }
-//   GetMallocMapinfo(pointer, fd, map_size, offset);
-//   ARROW_CHECK(*fd != -1);
-//   return pointer;
-// }
 
 #ifdef PLASMA_CUDA
 Status PlasmaStore::AllocateCudaMemory(
@@ -291,7 +250,11 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     return PlasmaError::ObjectExists;
   }
   auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
-  entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
+  {
+    std::lock_guard<std::mutex> lock_guard(entry_mtx);
+    entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get(); 
+    ARROW_LOG(DEBUG)<<"Object table size is " <<store_info_.objects.size();
+  }
   entry->data_size = data_size;
   entry->metadata_size = metadata_size;
 
@@ -559,13 +522,13 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       }
     } else {
       // todo: We should remove this object
-
+      ARROW_LOG(WARNING)<< "Get object failed!!!";
       // We tried to get the objects from the external store, but could not get them.
       // Set the state of these objects back to PLASMA_EVICTED so some other request
       // can try again.
-      for (size_t i = 0; i < evicted_ids.size(); ++i) {
-        evicted_entries[i]->state = ObjectState::PLASMA_EVICTED;
-      }
+      // for (size_t i = 0; i < evicted_ids.size(); ++i) {
+      //   evicted_entries[i]->state = ObjectState::PLASMA_EVICTED;
+      // }
     }
   }
 
@@ -590,7 +553,10 @@ void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
   auto& object = store_info_.objects[object_id];
   auto buff_size = object->data_size + object->metadata_size;
   if (object->device_num == 0) {
-    PlasmaAllocator::Free(object->pointer, buff_size);
+    if(object->pointer) {
+      PlasmaAllocator::Free(object->pointer, buff_size);
+      object->pointer = nullptr;      
+    }
   } else {
 #ifdef PLASMA_CUDA
     ARROW_CHECK_OK(FreeCudaMemory(object->device_num, buff_size, object->pointer));
@@ -608,6 +574,9 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
   // Remove the client from the object's array of clients.
   ARROW_CHECK(client->RemoveObjectIDIfExists(object_id));
   auto entry = GetObjectTableEntry(&store_info_, object_id);
+  if(entry == nullptr) {
+    ARROW_LOG(WARNING) << "try to release an object not exist in object table!!! " << object_id.hex();
+  }
   ARROW_CHECK(entry != nullptr);
   entry->evictable = true;
   DecreaseObjectRefCount(object_id, entry);
@@ -616,17 +585,6 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
 // Check if an object is present.
 ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
-  // if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
-  //   if (!external_store_->Exist(object_id).ok()) {
-  //     EraseFromObjectTable(object_id);
-  //     // Inform all subscribers that the object has been deleted.
-  //     fb::ObjectInfoT notification;
-  //     notification.object_id = object_id.binary();
-  //     notification.is_deletion = true;
-  //     PushNotification(&notification);
-  //     return ObjectStatus::OBJECT_NOT_FOUND;
-  //   }
-  // }
   ObjectStatus status = ObjectStatus::OBJECT_NOT_FOUND;
 
   if(!entry )
@@ -639,6 +597,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
         status = ObjectStatus::OBJECT_NOT_FOUND;
       }
       if (!external_store_->Exist(object_id).ok()) {
+        ARROW_LOG(WARNING)<<"erase from object table "<<object_id.hex(); 
         EraseFromObjectTable(object_id);
         status = ObjectStatus::OBJECT_NOT_FOUND;
       }
@@ -660,54 +619,14 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
           external_store_->Get({object_id}, buffers, entry);
           status = ObjectStatus::OBJECT_FOUND;
         }
-
       }
-
     } else if(entry->state == ObjectState::PLASMA_SEALED) {
       //todo: this object should not be evicted until get done
       status = ObjectStatus::OBJECT_FOUND;
     }
-
     entry->mtx.unlock();
   }
   return status;
-  // if(entry->state == ObjectState::PLASMA_EVICTED) {
-  //   if(!external_store_) {
-  //     return ObjectStatus::OBJECT_NOT_FOUND;
-  //   }
-  //   if (!external_store_->Exist(object_id).ok()) {
-  //     EraseFromObjectTable(object_id);
-  //     return ObjectStatus::OBJECT_NOT_FOUND;
-  //   }
-  //   else {
-  //     // ARROW_LOG(DEBUG)<<"Prefetch obj " << object_id.hex();
-  //     // this object is in external store and we need to prefetch it asynchronously
-  //     uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
-  //       &entry->fd,&entry->map_size, &entry->offset);
-  //     if (!pointer) {
-  //       ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
-  //                        << ", data_size=" << entry->data_size
-  //                        << ", metadata_size=" << entry->metadata_size
-  //                        << ", will send a reply of PlasmaError::OutOfMemory";
-  //       return ObjectStatus::OBJECT_NOT_FOUND;
-  //     }
-  //     entry->pointer = pointer;
-  //     std::vector<std::shared_ptr<Buffer>> buffers;
-  //     buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
-  //                                                   entry->data_size));
-  //     external_store_->Get({object_id}, buffers, entry);
-
-  //     return ObjectStatus::OBJECT_FOUND;
-  //   }
-  // }
-  // else if(entry->state == ObjectState::PLASMA_SEALED) {
-  //   return ObjectStatus::OBJECT_FOUND;
-  // }
-  // return ObjectStatus::OBJECT_NOT_FOUND;
-  // return entry && (entry->state == ObjectState::PLASMA_SEALED ||
-  //                  entry->state == ObjectState::PLASMA_EVICTED)
-  //            ? ObjectStatus::OBJECT_FOUND
-  //            : ObjectStatus::OBJECT_NOT_FOUND;
 }
 
 // Seal an object that has been created in the hash table.
@@ -717,6 +636,9 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
   for (size_t i = 0; i < object_ids.size(); ++i) {
     flatbuf::ObjectInfoT object_info;
     auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+    if(entry == nullptr) {
+      ARROW_LOG(WARNING) << "try to seal an object not exist in object table!!! " << object_ids[i].hex();
+    }
     ARROW_CHECK(entry != nullptr);
     ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
     // Set the state of object to SEALED.
@@ -791,6 +713,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 }
 
 void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
+  ARROW_LOG(WARNING)<<"should not be called!!!";
   std::vector<std::shared_ptr<arrow::Buffer>> evicted_object_data;
   std::vector<ObjectTableEntry*> evicted_entries;
   for (const auto& object_id : object_ids) {
@@ -815,7 +738,7 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
     } else {
       // If there is no backing external store, just erase the object entry
       // and send a deletion notification.
-      EraseFromObjectTable(object_id);
+      // EraseFromObjectTable(object_id);
       // Inform all subscribers that the object has been deleted.
       // PushObjectDeletionNotification(object_id);
     }
@@ -840,7 +763,7 @@ void PlasmaStore::IncreaseObjectRefCount(const ObjectID& object_id,
     std::vector<ObjectID> objects_to_evict;
     // eviction_policy_.BeginObjectAccess(object_id, &objects_to_evict);
     eviction_policy_.BeginObjectAccess(object_id);
-    EvictObjects(objects_to_evict);
+    // EvictObjects(objects_to_evict);
   }
   // Increase reference count.
   entry->ref_count++;
@@ -859,12 +782,12 @@ void PlasmaStore::DecreaseObjectRefCount(const ObjectID& object_id,
       std::vector<ObjectID> objects_to_evict;
       // eviction_policy_.EndObjectAccess(object_id, &objects_to_evict);
       eviction_policy_.EndObjectAccess(object_id);
-      EvictObjects(objects_to_evict);
+      // EvictObjects(objects_to_evict);
     } else {
       // Above code does not really delete an object. Instead, it just put an
       // object to LRU cache which will be cleaned when the memory is not enough.
       deletion_cache_.erase(object_id);
-      EvictObjects({object_id});
+      // EvictObjects({object_id});
     }
   }
 }
@@ -1041,6 +964,9 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
       // If the object was successfully created, fill out the object data and seal it.
       if (error_code == PlasmaError::OK) {
         auto entry = GetObjectTableEntry(&store_info_, object_id);
+        if(entry == nullptr) {
+          ARROW_LOG(WARNING) << "try to seal an object not exist in object table!!! " << object_id.hex();
+        }
         ARROW_CHECK(entry != nullptr);
         // Write the inlined data and metadata into the allocated object.
         std::memcpy(entry->pointer, data.data(), data.size());
@@ -1158,11 +1084,11 @@ class PlasmaStoreRunner {
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
   std::vector<std::thread> threads(5);
-  // for(int i=0; i< threads.size(); i++) {
-  //   threads[i] = std::thread([&] () {
-  //     io_context_.run();
-  //   });
-  // }
+  for(int i=0; i< threads.size(); i++) {
+    threads[i] = std::thread([&] () {
+      io_context_.run();
+    });
+  }
     io_context_.run();
   }
 
