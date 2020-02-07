@@ -106,7 +106,9 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
                 ARROW_LOG(WARNING) << "try to evict an object not exist in object table!!! " << objId.hex();
                 return -1;
               }
-              if(!entry->evictable) {
+              ARROW_LOG(DEBUG)<<"evict "<< objId.hex() << " ref count is " << entry->ref_count;
+              // if(!entry->evictable) {
+              if(entry->ref_count!=0) {
                 ARROW_LOG(WARNING) << "this object can't evict now due to unreleased";
                 return -1;
               }

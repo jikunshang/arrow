@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <atomic>
 // TODO(pcm): Convert getopt and sscanf in the store to use more idiomatic C++
 // and get rid of the next three lines:
 #ifndef __STDC_FORMAT_MACROS
@@ -120,7 +121,8 @@ struct ObjectTableEntry {
   /// Size of the object metadata in bytes.
   int64_t metadata_size;
   /// Number of clients currently using this object.
-  int ref_count;
+  // int ref_count;
+  std::atomic<int> ref_count;
   /// Unix epoch of when this object was created.
   int64_t create_time;
   /// How long creation of this object took.
