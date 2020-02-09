@@ -296,7 +296,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
-
+  entry->ref_count = 0;
+  
   result->store_fd = fd;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
@@ -441,7 +442,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       get_req->num_satisfied += 1;
       // If necessary, record that this client is using this object. In the case
       // where entry == NULL, this will be called from SealObject.
-      AddToClientObjectIds(object_id, entry, client);
+      // AddToClientObjectIds(object_id, entry, client);
     } else if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
       auto tic = std::chrono::steady_clock::now();
       while(entry->state == ObjectState::PLASMA_EVICTED) {
@@ -453,7 +454,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
 
       PlasmaObject_init(&get_req->objects[object_id], entry);
       get_req->num_satisfied += 1;
-      AddToClientObjectIds(object_id, entry, client);
+      // AddToClientObjectIds(object_id, entry, client);
       // Make sure the object pointer is not already allocated
       // ARROW_CHECK(!entry->pointer);
 
@@ -583,7 +584,8 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
 }
 
 // Check if an object is present.
-ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
+ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
+					 const std::shared_ptr<ClientConnection>& client) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   ObjectStatus status = ObjectStatus::OBJECT_NOT_FOUND;
 
@@ -603,6 +605,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
       }
       else {
         entry->evictable = false;
+	AddToClientObjectIds(object_id, entry, client);
         uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
           &entry->fd,&entry->map_size, &entry->offset);
         if (!pointer) {
@@ -622,6 +625,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
       }
     } else if(entry->state == ObjectState::PLASMA_SEALED) {
       //todo: this object should not be evicted until get done
+      AddToClientObjectIds(object_id, entry, client);
       status = ObjectStatus::OBJECT_FOUND;
     }
     entry->mtx.unlock();
@@ -1011,7 +1015,7 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
     } break;
     case MessageType::PlasmaContainsRequest: {
       RETURN_NOT_OK(ReadContainsRequest(message_data, message_size, &object_id));
-      auto has_object = (ContainsObject(object_id) == ObjectStatus::OBJECT_FOUND);
+      auto has_object = (ContainsObject(object_id, client) == ObjectStatus::OBJECT_FOUND);
       RETURN_NOT_OK(SendContainsReply(client, object_id, has_object));
     } break;
     case MessageType::PlasmaListRequest: {

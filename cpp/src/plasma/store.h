@@ -144,7 +144,8 @@ class PlasmaStore {
   /// \param object_id Object ID that will be checked.
   /// \return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
   /// not
-  ObjectStatus ContainsObject(const ObjectID& object_id);
+  ObjectStatus ContainsObject(const ObjectID& object_id, 
+			      const std::shared_ptr<ClientConnection>& client);
 
   /// Record the fact that a particular client is no longer using an object.
   ///
