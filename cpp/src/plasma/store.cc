@@ -178,8 +178,6 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
   if (client->ObjectIDExists(object_id)) {
     return;
   }
-  IncreaseObjectRefCount(object_id, entry);
-  // Add object id to the list of object ids that this client is using.
   client->object_ids.insert(object_id);
 }
 
@@ -187,7 +185,7 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
                                      ptrdiff_t* offset) {
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
-  bool waitFlag = false;
+  int waitFlag = 0;
   auto tic = std::chrono::steady_clock::now();
   while (true) {
     // Allocate space for the new object. We use memalign instead of malloc
@@ -201,9 +199,14 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     if (pointer) {
       break;
     }
-    waitFlag = true;
+    waitFlag++;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    if(waitFlag > 1000) 
+      break;
   }
   if(waitFlag) {
+    if(waitFlag>1000) 
+      ARROW_LOG(WARNING)<<"allocate failed!!!  current allocated size is " << PlasmaAllocator::Allocated();
     auto toc = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_ = toc - tic;
     ARROW_LOG(DEBUG)<<"wait free space takes " << time_.count() * 1000 << " ms";
@@ -302,12 +305,10 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   result->data_size = data_size;
   result->metadata_size = metadata_size;
   result->device_num = device_num;
-  // Notify the eviction policy that this object was created. This must be done
-  // immediately before the call to AddToClientObjectIds so that the
-  // eviction policy does not have an opportunity to evict the object.
-  eviction_policy_.ObjectCreated(object_id, nullptr, true);
-  // Record that this client is using this object.
+
   AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
+  IncreaseObjectRefCount(object_id, entry);
+  
   return PlasmaError::OK;
 }
 
@@ -401,7 +402,7 @@ void PlasmaStore::UpdateObjectGetRequests(const ObjectID& object_id) {
     get_req->num_satisfied += 1;
     // Record the fact that this client will be using this object and will
     // be responsible for releasing this object.
-    AddToClientObjectIds(object_id, entry, get_req->client);
+    AddToClientObjectIds(object_id, entry, get_req->client); // TODO: need?
 
     // If this get request is done, reply to the client.
     if (get_req->num_satisfied == get_req->num_objects_to_wait_for) {
@@ -440,14 +441,13 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       get_req->num_satisfied += 1;
       // If necessary, record that this client is using this object. In the case
       // where entry == NULL, this will be called from SealObject.
-      // AddToClientObjectIds(object_id, entry, client);
     } else if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
       // TODO: what if an object did not call contain?(user ensure) or called contain, but evicted again?()
       // we called Conatins earlier, so backend thread is pre-fetch object.
       auto tic = std::chrono::steady_clock::now();
       int retry_time = 0;
       while(entry->state == ObjectState::PLASMA_EVICTED) {
-        if(retry_time > 500){
+        if(retry_time > 500000){
           ARROW_LOG(WARNING) << "prefetch object" << object_id.hex() << " failed!!!";
           break;
         }
@@ -518,6 +518,7 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
   ARROW_CHECK(entry != nullptr);
   entry->evictable = true;
   DecreaseObjectRefCount(object_id, entry);
+  eviction_policy_.AddObjects(object_id, entry->data_size + entry->metadata_size);
 }
 
 // Check if an object is present.
@@ -541,8 +542,9 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
         status = ObjectStatus::OBJECT_NOT_FOUND;
       }
       else {
+        ARROW_LOG(DEBUG) << "pre fetch object "<<object_id.hex();
         entry->evictable = false;
-	      AddToClientObjectIds(object_id, entry, client);
+
         // TODO: AllocateMemory may block, put to backend thread
         uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
           &entry->fd,&entry->map_size, &entry->offset);
@@ -553,6 +555,9 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
                          << ", will send a reply of PlasmaError::OutOfMemory";
           status = ObjectStatus::OBJECT_NOT_FOUND;
         } else {
+          ARROW_LOG(DEBUG) << "pre fetch object "<<object_id.hex();
+          IncreaseObjectRefCount(object_id, entry);
+          AddToClientObjectIds(object_id, entry, client);
           entry->pointer = pointer;
           std::vector<std::shared_ptr<Buffer>> buffers;
           buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
@@ -564,6 +569,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
     } else if(entry->state == ObjectState::PLASMA_SEALED) {
       //todo: this object should not be evicted until get done
       AddToClientObjectIds(object_id, entry, client);
+      IncreaseObjectRefCount(object_id, entry);
       status = ObjectStatus::OBJECT_FOUND;
     }
     entry->mtx.unlock();
@@ -660,13 +666,6 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
 
 void PlasmaStore::IncreaseObjectRefCount(const ObjectID& object_id,
                                          ObjectTableEntry* entry) {
-  // If there are no other clients using this object, notify the eviction policy
-  // that the object is being used.
-  if (entry->ref_count == 0) {
-    // Tell the eviction policy that this object is being used.
-    std::vector<ObjectID> objects_to_evict;
-    eviction_policy_.BeginObjectAccess(object_id);
-  }
   // Increase reference count.
   entry->ref_count++;
 }
@@ -675,20 +674,6 @@ void PlasmaStore::DecreaseObjectRefCount(const ObjectID& object_id,
                                          ObjectTableEntry* entry) {
   // Decrease reference count.
   entry->ref_count--;
-
-  // If no more clients are using this object, notify the eviction policy
-  // that the object is no longer being used.
-  if (entry->ref_count == 0) {
-    if (deletion_cache_.count(object_id) == 0) {
-      // Tell the eviction policy that this object is no longer being used.
-      std::vector<ObjectID> objects_to_evict;
-      eviction_policy_.EndObjectAccess(object_id);
-    } else {
-      // Above code does not really delete an object. Instead, it just put an
-      // object to LRU cache which will be cleaned when the memory is not enough.
-      deletion_cache_.erase(object_id);
-    }
-  }
 }
 
 void PlasmaStore::PushObjectReadyNotification(const ObjectID& object_id,

@@ -85,7 +85,8 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
         auto tic = std::chrono::steady_clock::now();
         std::vector<ObjectID> objIds;
         evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 3, &objIds);
-        ARROW_LOG(DEBUG)<<"will evict " << objIds.size() << " objects.";
+        ARROW_LOG(DEBUG)<<"will evict " << objIds.size() 
+        << " objects. Plasma Allocator allocated size is "<<PlasmaAllocator::Allocated();
         std::vector<std::future<int>> ret;
         for(auto objId : objIds) {
           // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();

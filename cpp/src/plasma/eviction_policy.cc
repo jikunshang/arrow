@@ -102,10 +102,6 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
   int64_t bytes_evicted =
       cache_.ChooseObjectsToEvict(num_bytes_required, objects_to_evict);
   ARROW_LOG(DEBUG) << DebugString();
-  // // Update the LRU cache.
-  // for (auto& object_id : *objects_to_evict) {
-  //   cache_.Remove(object_id);
-  // }
   return bytes_evicted;
 }
 
@@ -155,6 +151,11 @@ void EvictionPolicy::EndObjectAccess(const ObjectID& object_id) {
   // Add the object to the LRU cache.
   cache_.Add(object_id, size);
   pinned_memory_bytes_ -= size;
+}
+
+void EvictionPolicy::AddObject(ObjectID &object_id, int64_t size) {
+  std::lock_guard<std::mutex> lock(mtx);
+  cache_.Add(object_id, size);
 }
 
 void EvictionPolicy::RemoveObject(ObjectID& object_id) {

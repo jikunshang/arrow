@@ -118,6 +118,8 @@ class EvictionPolicy {
 
   virtual void RemoveObject(ObjectID &objecct_id) ;
 
+  virtual void AddObject(ObjectID &object_id, int64_t size);
+
   /// Set quota for a client.
   ///
   /// \param client The pointer to the client.
