@@ -157,7 +157,7 @@ PlasmaStore::PlasmaStore(asio::io_context& io_context, std::string directory,
     external_store_->RegisterEvictionPolicy(&eviction_policy_);
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
-  store_info_.objects.reserve(5000);
+  store_info_.objects.reserve(50000);
 #ifdef PLASMA_CUDA
   DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
 #endif
@@ -447,7 +447,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       auto tic = std::chrono::steady_clock::now();
       int retry_time = 0;
       while(entry->state == ObjectState::PLASMA_EVICTED) {
-        if(retry_time > 500000){
+        if(retry_time > 100000){
           ARROW_LOG(WARNING) << "prefetch object" << object_id.hex() << " failed!!!";
           break;
         }
@@ -510,7 +510,8 @@ void PlasmaStore::PushNotifications(std::vector<flatbuf::ObjectInfoT>& object_no
 void PlasmaStore::ReleaseObject(const ObjectID& object_id,
                                 const std::shared_ptr<ClientConnection>& client) {
   // Remove the client from the object's array of clients.
-  ARROW_CHECK(client->RemoveObjectIDIfExists(object_id));
+  // ARROW_CHECK(client->RemoveObjectIDIfExists(object_id));
+  client->RemoveObjectIDIfExists(object_id);
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   if(entry == nullptr) {
     ARROW_LOG(WARNING) << "try to release an object not exist in object table!!! " << object_id.hex();
@@ -967,7 +968,7 @@ class PlasmaStoreRunner {
     
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-  std::vector<std::thread> threads(5);
+  std::vector<std::thread> threads(1);
   for(int i=0; i< threads.size(); i++) {
     threads[i] = std::thread([&] () {
       io_context_.run();

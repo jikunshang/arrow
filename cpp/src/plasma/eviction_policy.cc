@@ -28,7 +28,8 @@ namespace plasma {
 void LRUCache::Add(const ObjectID& key, int64_t size) {
   std::lock_guard<std::mutex> lock(cache_mtx_);  
   auto it = item_map_.find(key);
-  ARROW_CHECK(it == item_map_.end());
+  if(it != item_map_.end())  // this obejct already in list
+    return ;
   // Note that it is important to use a list so the iterators stay valid.
   item_list_.emplace_front(key, size);
   item_map_.emplace(key, item_list_.begin());
