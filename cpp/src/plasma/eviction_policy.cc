@@ -153,7 +153,7 @@ void EvictionPolicy::EndObjectAccess(const ObjectID& object_id) {
   pinned_memory_bytes_ -= size;
 }
 
-void EvictionPolicy::AddObject(ObjectID &object_id, int64_t size) {
+void EvictionPolicy::AddObject(const ObjectID &object_id, int64_t size) {
   std::lock_guard<std::mutex> lock(mtx);
   cache_.Add(object_id, size);
 }

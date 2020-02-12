@@ -518,7 +518,7 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
   ARROW_CHECK(entry != nullptr);
   entry->evictable = true;
   DecreaseObjectRefCount(object_id, entry);
-  eviction_policy_.AddObjects(object_id, entry->data_size + entry->metadata_size);
+  eviction_policy_.AddObject(object_id, entry->data_size + entry->metadata_size);
 }
 
 // Check if an object is present.
