@@ -251,8 +251,6 @@ class PlasmaStore {
   io::PlasmaAcceptor acceptor_;
   /// The stream to listen on for new clients.
   io::PlasmaStream stream_;
-
-  std::mutex mtx;
 };
 
 }  // namespace plasma
