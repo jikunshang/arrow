@@ -448,11 +448,11 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       auto tic = std::chrono::steady_clock::now();
       int retry_time = 0;
       while(entry->state == ObjectState::PLASMA_EVICTED) {
-        if(retry_time > 100000){
-          ARROW_LOG(WARNING) << "prefetch object" << object_id.hex() << " failed!!!";
+        if(retry_time > 1000){
+          ARROW_LOG(WARNING) << "prefetch object " << object_id.hex() << " failed!!!";
           break;
         }
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         retry_time++;
       }
       auto toc = std::chrono::steady_clock::now();
@@ -545,7 +545,7 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
         status = ObjectStatus::OBJECT_NOT_FOUND;
       }
       else {
-        ARROW_LOG(DEBUG) << "pre fetch object "<<object_id.hex();
+        // ARROW_LOG(DEBUG) << "pre fetch object "<<object_id.hex();
         entry->evictable = false;
 
         // TODO: AllocateMemory may block, put to backend thread
