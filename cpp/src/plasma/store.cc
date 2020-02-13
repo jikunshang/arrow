@@ -306,7 +306,8 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   result->metadata_size = metadata_size;
   result->device_num = device_num;
 
-  AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
+  // AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
+  AddToClientObjectIds(object_id, nullptr, client);
   IncreaseObjectRefCount(object_id, entry);
   
   return PlasmaError::OK;
@@ -488,6 +489,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
 }
 
 void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
+  std::lock_guard<std::mutex> lock_guard(entry_mtx);
   auto& object = store_info_.objects[object_id];
   auto buff_size = object->data_size + object->metadata_size;
   if (object->device_num == 0) {
