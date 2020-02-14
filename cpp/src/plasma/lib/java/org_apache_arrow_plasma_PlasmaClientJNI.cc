@@ -210,6 +210,9 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
     } else {
       dataBuf = nullptr;
       metadataBuf = nullptr;
+      jclass Exception =
+        env->FindClass("org/apache/arrow/plasma/exceptions/PlasmaGetException");
+      env->ThrowNew(Exception, "Get returns an invalid value!");
     }
 
     env->SetObjectArrayElement(o, 0, dataBuf);

@@ -255,6 +255,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   {
     std::lock_guard<std::mutex> lock_guard(entry_mtx);
     entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get(); 
+    ARROW_LOG(DEBUG) << "Table size is "<<store_info_.objects.size();
   }
   entry->data_size = data_size;
   entry->metadata_size = metadata_size;
@@ -448,7 +449,7 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       auto tic = std::chrono::steady_clock::now();
       int retry_time = 0;
       while(entry->state == ObjectState::PLASMA_EVICTED) {
-        if(retry_time > 1000){
+        if(retry_time > 500){  // TODO: What if this is a large object?
           ARROW_LOG(WARNING) << "prefetch object " << object_id.hex() << " failed!!!";
           break;
         }
@@ -458,8 +459,10 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       auto toc = std::chrono::steady_clock::now();
       std::chrono::duration<double> time_ = toc - tic;
       ARROW_LOG(DEBUG) << "wait object ready takes " << time_.count() * 1000 << " ms";
-
-      PlasmaObject_init(&get_req->objects[object_id], entry);
+      if(retry_time > 500) {
+        get_req->objects[object_id].data_size = -1;
+      } else
+        PlasmaObject_init(&get_req->objects[object_id], entry);
       get_req->num_satisfied += 1;
     } else {
       // Add a placeholder plasma object to the get request to indicate that the
