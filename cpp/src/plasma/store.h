@@ -159,6 +159,8 @@ class PlasmaStore {
   /// \param client The client making this request.
   void SubscribeToUpdates(const std::shared_ptr<ClientConnection>& client);
 
+  static uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
+
  private:
   // Inform all subscribers that a new object has been sealed.
   void PushObjectReadyNotification(const ObjectID& object_id,
@@ -193,7 +195,6 @@ class PlasmaStore {
 
   void EraseFromObjectTable(const ObjectID& object_id);
 
-  static uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
 
   void IncreaseObjectRefCount(const ObjectID& object_id, ObjectTableEntry* entry);
 

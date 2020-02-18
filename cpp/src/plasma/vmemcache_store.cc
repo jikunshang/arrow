@@ -22,6 +22,7 @@
 
 #include "arrow/util/logging.h"
 
+#include "plasma/store.h"
 #include "plasma/vmemcache_store.h"
 #include "plasma/plasma_allocator.h"
 
@@ -301,8 +302,8 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
 Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
 
   threadPools[entry->numaNodePostion]->enqueue( [&, id, entry] () {
-    uint8_t* pointer = nullptr; //PlasmaStore::AllocateMemory(entry->data_size + entry->metadata_size,
-      // &entry->fd,&entry->map_size, &entry->offset);
+    uint8_t* pointer = PlasmaStore::AllocateMemory(entry->data_size + entry->metadata_size,
+       &entry->fd,&entry->map_size, &entry->offset);
     if (!pointer) {
       ARROW_LOG(ERROR) << "Not enough memory to create the object " << id.hex()
                    << ", data_size=" << entry->data_size
