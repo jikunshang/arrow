@@ -236,10 +236,10 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
     auto buffer = buffers[i];
     threadPools[entry->numaNodePostion]->enqueue( [&, entry, id, buffer]() {
       auto cache = caches[entry->numaNodePostion];
-      size_t *vSize = new size_t(0);
+      size_t vSize = size_t(0);
       int ret = 0;
       ret = vmemcache_get(cache, id.data(), id.size(),
-       (void *)buffer->mutable_data(), buffer->size(), 0, vSize);
+       (void *)buffer->mutable_data(), buffer->size(), 0, &vSize);
       // ARROW_LOG(DEBUG) << "vmemcache get returns " << ret;
       if(ret <= 0) {
         ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();

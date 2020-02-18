@@ -594,7 +594,9 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
       ARROW_LOG(WARNING) << "try to seal an object not exist in object table!!! " << object_ids[i].hex();
     }
     ARROW_CHECK(entry != nullptr);
-    ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
+    // ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
+    if(entry->state != ObjectState::PLASMA_CREATED)
+      ARROW_LOG(WARNING) << "This object state is not PLASMA_CREATED!!!";
     // Set the state of object to SEALED.
     entry->state = ObjectState::PLASMA_SEALED;
     // Set the object digest.
