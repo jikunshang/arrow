@@ -193,7 +193,7 @@ class PlasmaStore {
 
   void EraseFromObjectTable(const ObjectID& object_id);
 
-  uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
+  static uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
 
   void IncreaseObjectRefCount(const ObjectID& object_id, ObjectTableEntry* entry);
 

@@ -138,8 +138,6 @@ struct ObjectTableEntry {
 
   /// Mutex for evict
   std::mutex mtx;
-  /// evict status
-  bool evictable;
 
 #ifdef PLASMA_CUDA
   /// IPC GPU handle to share with clients.

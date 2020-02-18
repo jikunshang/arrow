@@ -107,7 +107,6 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
               return -1;
             }
             ARROW_LOG(DEBUG)<<"evict "<< objId.hex() << " ref count is " << entry->ref_count;
-            // if(!entry->evictable) {
             if(entry->ref_count != 0) {
               ARROW_LOG(WARNING) << "this object can't evict now due to unreleased";
               return -1;
@@ -296,6 +295,34 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
   std::chrono::duration<double> time_ = toc - tic;
   ARROW_LOG(DEBUG) << "Get " << total << " objects takes "
                    << time_.count() * 1000 << " ms";
+  return Status::OK();
+}
+
+Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
+
+  threadPools[entry->numaNodePostion]->enqueue( [&, id, entry] () {
+    uint8_t* pointer = nullptr; //PlasmaStore::AllocateMemory(entry->data_size + entry->metadata_size,
+      // &entry->fd,&entry->map_size, &entry->offset);
+    if (!pointer) {
+      ARROW_LOG(ERROR) << "Not enough memory to create the object " << id.hex()
+                   << ", data_size=" << entry->data_size
+                   << ", metadata_size=" << entry->metadata_size
+                   << ", will send a reply of PlasmaError::OutOfMemory";
+    } else {
+      ARROW_LOG(DEBUG) << "pre fetch object "<<id.hex();
+      entry->pointer = pointer;
+      std::shared_ptr<Buffer> buffer(new arrow::MutableBuffer(entry->pointer, entry->data_size));
+      auto cache = caches[entry->numaNodePostion];
+      size_t vSize = size_t(0);
+      int ret = 0;
+      ret = vmemcache_get(cache, id.data(), id.size(),
+       (void *)buffer->mutable_data(), buffer->size(), 0, &vSize);
+       if(ret <= 0) {
+        ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();
+      }
+    }
+  });
+  
   return Status::OK();
 }
 

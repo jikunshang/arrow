@@ -44,6 +44,9 @@ class HashTableStore : public ExternalStore {
              std::vector<std::shared_ptr<Buffer>> buffers,
              ObjectTableEntry *entry) override;
 
+  Status Get(const ObjectID id, 
+             ObjectTableEntry *entry) override;
+
   Status Put(const std::vector<ObjectID>& ids,
              const std::vector<std::shared_ptr<Buffer>>& data) override;
 

@@ -522,7 +522,6 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id,
     ARROW_LOG(WARNING) << "try to release an object not exist in object table!!! " << object_id.hex();
   }
   ARROW_CHECK(entry != nullptr);
-  entry->evictable = true;
   DecreaseObjectRefCount(object_id, entry);
   eviction_policy_.AddObject(object_id, entry->data_size + entry->metadata_size);
 }
@@ -542,35 +541,20 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
       if(!external_store_) {
         status = ObjectStatus::OBJECT_NOT_FOUND;
       }
-      if (!external_store_->Exist(object_id).ok()) {
+      else if (!external_store_->Exist(object_id).ok()) {
         ARROW_LOG(WARNING)<<"erase from object table "<<object_id.hex(); 
         EraseFromObjectTable(object_id);
         status = ObjectStatus::OBJECT_NOT_FOUND;
       }
       else {
         // ARROW_LOG(DEBUG) << "pre fetch object "<<object_id.hex();
-        entry->evictable = false;
+        AddToClientObjectIds(object_id, entry, client);
+        IncreaseObjectRefCount(object_id, entry);
+        status = ObjectStatus::OBJECT_FOUND;
+        external_store_->Get(object_id, entry);
 
         // TODO: AllocateMemory may block, put to backend thread
-        uint8_t* pointer = AllocateMemory(entry->data_size + entry->metadata_size,
-          &entry->fd,&entry->map_size, &entry->offset);
-        if (!pointer) {
-          ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
-                         << ", data_size=" << entry->data_size
-                         << ", metadata_size=" << entry->metadata_size
-                         << ", will send a reply of PlasmaError::OutOfMemory";
-          status = ObjectStatus::OBJECT_NOT_FOUND;
-        } else {
-          ARROW_LOG(DEBUG) << "pre fetch object "<<object_id.hex();
-          IncreaseObjectRefCount(object_id, entry);
-          AddToClientObjectIds(object_id, entry, client);
-          entry->pointer = pointer;
-          std::vector<std::shared_ptr<Buffer>> buffers;
-          buffers.emplace_back(new arrow::MutableBuffer(entry->pointer,
-                                                    entry->data_size));
-          external_store_->Get({object_id}, buffers, entry);
-          status = ObjectStatus::OBJECT_FOUND;
-        }
+
       }
     } else if(entry->state == ObjectState::PLASMA_SEALED) {
       //todo: this object should not be evicted until get done

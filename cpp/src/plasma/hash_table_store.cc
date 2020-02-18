@@ -64,6 +64,11 @@ Status HashTableStore::Get(const std::vector<ObjectID> &ids,
              ObjectTableEntry *entry) {
   return Get(ids, buffers);
 }
+
+ Status HashTableStore::Get(const ObjectID id, 
+             ObjectTableEntry *entry) {
+  return Status::OK();
+}
             
 
 REGISTER_EXTERNAL_STORE("hashtable", HashTableStore);
