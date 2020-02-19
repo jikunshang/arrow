@@ -201,11 +201,11 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     }
     waitFlag++;
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    if(waitFlag > 1000) 
+    if(waitFlag > 500) 
       break;
   }
   if(waitFlag) {
-    if(waitFlag>1000) 
+    if(waitFlag>500) 
       ARROW_LOG(WARNING)<<"allocate failed!!!  current allocated size is " << PlasmaAllocator::Allocated();
     auto toc = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_ = toc - tic;
