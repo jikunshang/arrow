@@ -302,6 +302,7 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
 Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
 
   threadPools[entry->numaNodePostion]->enqueue( [&, id, entry] () {
+    ARROW_LOG(DEBUG) << "pre fetch object "<<id.hex();
     uint8_t* pointer = PlasmaStore::AllocateMemory(entry->data_size + entry->metadata_size,
        &entry->fd,&entry->map_size, &entry->offset);
     if (!pointer) {
@@ -310,7 +311,6 @@ Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
                    << ", metadata_size=" << entry->metadata_size
                    << ", will send a reply of PlasmaError::OutOfMemory";
     } else {
-      ARROW_LOG(DEBUG) << "pre fetch object "<<id.hex();
       entry->pointer = pointer;
       std::shared_ptr<Buffer> buffer(new arrow::MutableBuffer(entry->pointer, entry->data_size));
       auto cache = caches[entry->numaNodePostion];
@@ -320,7 +320,8 @@ Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
        (void *)buffer->mutable_data(), buffer->size(), 0, &vSize);
        if(ret <= 0) {
         ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();
-      }
+      } else
+        entry->state = ObjectState::PLASMA_SEALED;
     }
   });
   
