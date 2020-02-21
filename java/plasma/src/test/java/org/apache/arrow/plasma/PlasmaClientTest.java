@@ -198,6 +198,14 @@ public class PlasmaClientTest {
     assert Arrays.equals(value5, fullData5.data);
     System.out.println("Plasma java client metadata get test success.");
     
+    byte[][] list = pLink.list();
+    boolean found = false;
+    for(int i=0; i<list.length; i++ ) {
+      if(Arrays.equals(id1, list[i])) 
+        found = true;
+    }
+    assert found;
+
     byte[] id6 =  getArrayFilledWithValue(20, (byte) 6);
     byte[] val6 =  getArrayFilledWithValue(21, (byte) 6);
     pLink.put(id6, val6, null);

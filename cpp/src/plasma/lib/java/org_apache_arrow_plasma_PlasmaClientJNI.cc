@@ -31,6 +31,7 @@
 #include "arrow/util/logging.h"
 
 #include "plasma/client.h"
+#include "plasma/common.h"
 
 constexpr jsize OBJECT_ID_SIZE = sizeof(plasma::ObjectID) / sizeof(jbyte);
 
@@ -243,4 +244,24 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_evict(
       env, client->Evict(static_cast<int64_t>(num_bytes), evicted_bytes));
 
   return static_cast<jlong>(evicted_bytes);
+}
+
+JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_list(
+    JNIEnv* env, jclass cls, jlong conn) {
+  plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
+  plasma::ObjectTable objectTable ;
+  client->List(&objectTable);
+  jobjectArray ret = env->NewObjectArray(objectTable.size(),
+    env->FindClass("[B"), env->NewByteArray(1) );
+  printf("there are %d objects\n", objectTable.size());
+
+  int i=0;
+  for( auto iter = objectTable.begin(); iter!= objectTable.end(); iter++){
+    // printf("%s \n", iter->first.hex());
+    jbyteArray id = env->NewByteArray(OBJECT_ID_SIZE);
+    env->SetByteArrayRegion(id, 0, OBJECT_ID_SIZE, reinterpret_cast<jbyte*>(const_cast<uint8_t*>(iter->first.data())));
+    env->SetObjectArrayElement(ret, i, id);
+    i++;
+  }
+  return ret;
 }

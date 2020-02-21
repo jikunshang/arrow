@@ -162,4 +162,8 @@ public class PlasmaClient implements ObjectStoreLink {
   public boolean contains(byte[] objectId) {
     return PlasmaClientJNI.contains(conn, objectId);
   }
+
+  public byte[][] list() {
+    return PlasmaClientJNI.list(conn);
+  }
 }
