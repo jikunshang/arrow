@@ -90,6 +90,8 @@ class ExternalStore {
   virtual Status Exist(ObjectID id) = 0;
 
   virtual Status RegisterEvictionPolicy(EvictionPolicy* eviction_policy) = 0;
+
+  virtual void Metrics(int64_t* memory_total, int64_t* memory_used) = 0;
 };
 
 class ExternalStores {

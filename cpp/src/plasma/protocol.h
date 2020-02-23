@@ -241,6 +241,12 @@ Status SendDataReply(const std::shared_ptr<ClientConnection>& client, ObjectID o
 Status ReadDataReply(const uint8_t* data, size_t size, ObjectID* object_id,
                      int64_t* object_size, int64_t* metadata_size);
 
+Status SendMetricsRequest(const std::shared_ptr<ServerConnection>& client) ;
+Status ReadMetricsRequest(const uint8_t* data, size_t size) ;
+Status SendMetricsReply(const std::shared_ptr<ServerConnection>& client,
+                        const PlasmaMetrics* metrics);
+Status ReadMetricsReply(const uint8_t* data, size_t size, PlasmaMetrics* metrics) ;
+
 /* Plasma notification message functions. */
 
 Status SendSubscribeRequest(const std::shared_ptr<ServerConnection>& client);

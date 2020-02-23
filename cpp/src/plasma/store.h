@@ -162,6 +162,8 @@ class PlasmaStore {
   static uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
 
  private:
+
+  void UpdateMetrics(PlasmaMetrics *metrics);
   // Inform all subscribers that a new object has been sealed.
   void PushObjectReadyNotification(const ObjectID& object_id,
                                    const ObjectTableEntry& entry);

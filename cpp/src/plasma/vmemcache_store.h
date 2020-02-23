@@ -92,13 +92,14 @@ public:
   Status Exist(ObjectID id) override;
   static std::string hex(char *id);
   Status RegisterEvictionPolicy(EvictionPolicy* eviction_policy) override;
-
+  void Metrics(int64_t* memory_total, int64_t* memory_used) override;
 private:
   void Evict(std::vector<ObjectID> &ids, std::vector<std::shared_ptr<Buffer>> &datas);
   std::vector<VMEMcache *> caches;
   std::vector<std::shared_ptr<numaThreadPool>> threadPools;
   int totalNumaNodes = 2;
   int threadInPools = 24;
+  int64_t totalCacheSize= 0;
   EvictionPolicy* evictionPolicy_;
 };
 

@@ -707,6 +707,18 @@ void PlasmaStore::SubscribeToUpdates(const std::shared_ptr<ClientConnection>& cl
   }
 }
 
+void PlasmaStore::UpdateMetrics(PlasmaMetrics *metrics) {
+  metrics->share_mem_total = PlasmaAllocator::GetFootprintLimit();
+  metrics->share_mem_used = PlasmaAllocator::Allocated();
+  int64_t external_total = 0;
+  int64_t external_used = 0;
+  if(external_store_) {
+    external_store_->Metrics(&external_total, &external_used);
+  }
+  metrics->external_total = external_total;
+  metrics->external_used = external_used;
+}
+
 void PlasmaStore::DoAccept() {
   // TODO(suquark): Use shared_from_this() here ?
   acceptor_.async_accept(stream_,
@@ -921,6 +933,12 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
       break;
     case MessageType::PlasmaConnectRequest: {
       RETURN_NOT_OK(SendConnectReply(client, PlasmaAllocator::GetFootprintLimit()));
+    } break;
+    case MessageType::PlasmaMetricsRequest : {
+      RETURN_NOT_OK(ReadMetricsRequest(message_data, message_size));
+      PlasmaMetrics metrics;
+      UpdateMetrics(&metrics);
+      RETURN_NOT_OK(SendMetricsReply(client, &metrics));
     } break;
     case MessageType::PlasmaDisconnectClient:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->GetNativeHandle();

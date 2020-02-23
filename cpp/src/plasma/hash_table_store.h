@@ -54,6 +54,8 @@ class HashTableStore : public ExternalStore {
 
   Status RegisterEvictionPolicy(EvictionPolicy* eviction_policy) override;
 
+  void Metrics(int64_t* memory_total, int64_t* memory_used) override;
+
  private:
   typedef std::unordered_map<ObjectID, std::string> HashTable;
 

@@ -18,6 +18,7 @@
 #include "plasma/protocol.h"
 
 #include <utility>
+#include <iostream>
 
 #include "arrow/util/logging.h"
 #include "flatbuffers/flatbuffers.h"
@@ -601,6 +602,43 @@ Status ReadListReply(const uint8_t* data, size_t size, ObjectTable* objects) {
   }
   return Status::OK();
 }
+
+// Metrics message
+Status SendMetricsRequest(const std::shared_ptr<ServerConnection>& client) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message = fb::CreatePlasmaMetricsRequest(fbb);
+  fbb.Finish(message);
+  return PlasmaSend(client, MessageType::PlasmaMetricsRequest, &fbb);
+}
+
+Status ReadMetricsRequest(const uint8_t* data, size_t size) {
+  return Status::OK();
+}
+
+Status SendMetricsReply(const std::shared_ptr<ServerConnection>& client,
+                        const PlasmaMetrics* metrics) {
+  std::cout<<"aaa"<<std::endl;
+  flatbuffers::FlatBufferBuilder fbb;
+  plasma::flatbuf::PlasmaMetrics metrics_(metrics->share_mem_total,
+                                          metrics->share_mem_used,
+                                          metrics->external_total,
+                                          metrics->external_used);
+  auto message = fb::CreatePlasmaMetricsReply(fbb, &metrics_);   
+  fbb.Finish(message);
+  return PlasmaSend(client, MessageType::PlasmaMetricsReply, &fbb);
+}
+
+Status ReadMetricsReply(const uint8_t* data, size_t size, PlasmaMetrics* metrics) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaMetricsReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  // TODO: Decode
+  //  plasma::flatbuf::PlasmaMetrics metrics_ = message->metrics();
+  memcpy(metrics, message->metrics(), sizeof(PlasmaMetrics));
+  return Status::OK();
+
+}
+
 
 // Connect messages.
 

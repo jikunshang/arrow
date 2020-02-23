@@ -42,6 +42,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
   std::string sizeStr = endpoint.substr(size_start, size_end);
   unsigned long long size = std::stoull(sizeStr);
   if(size == 0) size = CACHE_MAX_SIZE;
+  totalCacheSize = size * totalNumaNodes;
   ARROW_LOG(DEBUG) << "vmemcache size is " << size;
   for (int i = 0; i < totalNumaNodes; i++) {
     // initial vmemcache on numa node i
@@ -343,6 +344,18 @@ Status VmemcacheStore::Exist(ObjectID id) {
 Status VmemcacheStore::RegisterEvictionPolicy(EvictionPolicy* eviction_policy) {
   evictionPolicy_ = eviction_policy;
   return Status::OK();
+}
+
+void VmemcacheStore::Metrics(int64_t* memory_total, int64_t* memory_used) {
+  *memory_total = totalCacheSize;
+  int64_t memory_used_ =0 ;
+  for(int i =0; i< totalNumaNodes; i++)
+  {
+    int64_t tmp;
+    vmemcache_get_stat(caches[i],VMEMCACHE_STAT_POOL_SIZE_USED, &tmp, sizeof(tmp));
+    memory_used_+=tmp;
+  }
+  *memory_used = memory_used_;
 }
 
 REGISTER_EXTERNAL_STORE("vmemcache", VmemcacheStore);

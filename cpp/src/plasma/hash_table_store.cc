@@ -70,6 +70,10 @@ Status HashTableStore::Get(const std::vector<ObjectID> &ids,
   return Status::OK();
 }
             
+void HashTableStore::Metrics(int64_t* memory_total, int64_t* memory_used) {
+  *memory_total = 0;
+  *memory_used = 0;
+}
 
 REGISTER_EXTERNAL_STORE("hashtable", HashTableStore);
 

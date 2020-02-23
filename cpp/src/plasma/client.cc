@@ -239,6 +239,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status List(ObjectTable* objects);
 
+  Status Metrics(PlasmaMetrics* metrics);
+
   Status Abort(const ObjectID& object_id);
 
   Status Seal(const ObjectID& object_id);
@@ -773,6 +775,15 @@ Status PlasmaClient::Impl::List(ObjectTable* objects) {
   return ReadListReply(buffer.data(), buffer.size(), objects);
 }
 
+Status PlasmaClient::Impl::Metrics(PlasmaMetrics* metrics) {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+  RETURN_NOT_OK(SendMetricsRequest(store_conn_));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaMetricsReply, &buffer));
+  return ReadMetricsReply(buffer.data(), buffer.size(), metrics);
+
+}
+
 static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t* hash) {
   XXH64_state_t hash_state;
   XXH64_reset(&hash_state, XXH64_DEFAULT_SEED);
@@ -1139,6 +1150,8 @@ Status PlasmaClient::Contains(const ObjectID& object_id, bool* has_object) {
 }
 
 Status PlasmaClient::List(ObjectTable* objects) { return impl_->List(objects); }
+
+Status PlasmaClient::Metrics(PlasmaMetrics* metrics) { return impl_->Metrics(metrics); }
 
 Status PlasmaClient::Abort(const ObjectID& object_id) { return impl_->Abort(object_id); }
 

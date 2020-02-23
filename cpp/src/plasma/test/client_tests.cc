@@ -57,7 +57,7 @@ class TestPlasmaStore : public ::testing::Test {
         test_executable.substr(0, test_executable.find_last_of("/"));
     std::string plasma_command =
         plasma_directory + "/plasma-store-server -m 10000000 -s " + store_socket_name_ +
-        " 1> /tmp/log.stdout 2> /tmp/log.stderr" +
+        // " 1> /tmp/log.stdout 2> /tmp/log.stderr" +
         " & " + "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ASSERT_OK(client_.Connect(store_socket_name_, ""));
@@ -146,6 +146,16 @@ class TestPlasmaStore : public ::testing::Test {
 //   ASSERT_OK(local_client2.Disconnect());
 //   ASSERT_OK(local_client.Disconnect());
 // }
+
+TEST_F(TestPlasmaStore, MetricsTest) {
+  PlasmaMetrics metrics;
+  client_.Metrics(&metrics);
+  ASSERT_EQ(10000000, metrics.share_mem_total);
+  ASSERT_TRUE(metrics.share_mem_used == 0);
+  ASSERT_EQ(0, metrics.external_total);
+  ASSERT_EQ(0, metrics.external_used);
+
+}
 
 TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = random_object_id();

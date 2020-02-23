@@ -188,6 +188,8 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status List(ObjectTable* objects);
 
+  Status Metrics(PlasmaMetrics* metrics);
+
   /// Abort an unsealed object in the object store. If the abort succeeds, then
   /// it will be as if the object was never created at all. The unsealed object
   /// must have only a single reference (the one that would have been removed by

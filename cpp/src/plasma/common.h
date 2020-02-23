@@ -147,6 +147,13 @@ struct ObjectTableEntry {
 #endif
 };
 
+struct PlasmaMetrics {
+  uint64_t share_mem_total;
+  uint64_t share_mem_used;
+  uint64_t external_total;
+  uint64_t external_used;
+};
+
 /// Mapping from ObjectIDs to information about the object.
 typedef std::unordered_map<ObjectID, std::unique_ptr<ObjectTableEntry>> ObjectTable;
 
