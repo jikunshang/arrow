@@ -125,4 +125,6 @@ public interface ObjectStoreLink {
   boolean contains(byte[] objectId);
 
   byte[][] list();
+
+  int metrics(long[] metrics);
 }

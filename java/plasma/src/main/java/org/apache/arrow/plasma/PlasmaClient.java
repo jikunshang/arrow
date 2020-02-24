@@ -166,4 +166,8 @@ public class PlasmaClient implements ObjectStoreLink {
   public byte[][] list() {
     return PlasmaClientJNI.list(conn);
   }
+
+  public int metrics(long[] metrics) {
+    return PlasmaClientJNI.metrics(conn, metrics);
+  }
 }

@@ -206,6 +206,10 @@ public class PlasmaClientTest {
     }
     assert found;
 
+    long[] metrics = new long[4];
+    pLink.metrics(metrics);
+    assert metrics[0] == 10000000;
+
     byte[] id6 =  getArrayFilledWithValue(20, (byte) 6);
     byte[] val6 =  getArrayFilledWithValue(21, (byte) 6);
     pLink.put(id6, val6, null);
