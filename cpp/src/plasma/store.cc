@@ -285,6 +285,12 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
                        << ", data_size=" << data_size
                        << ", metadata_size=" << metadata_size
                        << ", will send a reply of PlasmaError::OutOfMemory";
+
+      if(!external_store_) {
+        std::vector<ObjectID> objects_to_evict;
+        bool success = eviction_policy_.RequireSpace(total_size, &objects_to_evict);
+        EvictObjects(objects_to_evict);
+      }
       return PlasmaError::OutOfMemory;
     }
   }
@@ -494,18 +500,24 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
 void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
   std::lock_guard<std::mutex> lock_guard(entry_mtx);
   auto& object = store_info_.objects[object_id];
-  auto buff_size = object->data_size + object->metadata_size;
-  if (object->device_num == 0) {
-    if(object->pointer) {
-      PlasmaAllocator::Free(object->pointer, buff_size);
-      object->pointer = nullptr;      
-    }
-  } else {
+  if(object->ref_count == 0){
+    auto buff_size = object->data_size + object->metadata_size;
+    if (object->device_num == 0) {
+      if(object->pointer) {
+        PlasmaAllocator::Free(object->pointer, buff_size);
+        object->pointer = nullptr;      
+      }
+    } else {
 #ifdef PLASMA_CUDA
-    ARROW_CHECK_OK(FreeCudaMemory(object->device_num, buff_size, object->pointer));
+      ARROW_CHECK_OK(FreeCudaMemory(object->device_num, buff_size, object->pointer));
 #endif
   }
-  store_info_.objects.erase(object_id);
+    store_info_.objects.erase(object_id);
+  } else {
+    ARROW_LOG(DEBUG)<<"try to erase an object not released!";
+  }
+
+
 }
 
 void PlasmaStore::PushNotifications(std::vector<flatbuf::ObjectInfoT>& object_notifications) {
@@ -659,7 +671,16 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 }
 
 void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
-  ARROW_LOG(WARNING)<<"should not be called!!!";
+  if (object_ids.size() == 0) {
+    return;
+  }
+  if (external_store_)
+    ARROW_LOG(WARNING)<<"should not be called!!!";
+  else {
+    for(auto object_id : object_ids) {
+       EraseFromObjectTable(object_id);
+    }
+  }
 }
 
 void PlasmaStore::IncreaseObjectRefCount(const ObjectID& object_id,
@@ -968,9 +989,7 @@ class PlasmaStoreRunner {
     // Create the event loop.
     store_.reset(new PlasmaStore(io_context_, directory, hugepages_enabled, stream_name,
                                  external_store));
-    ARROW_LOG(DEBUG)<<"here2?";
     plasma_config = store_->GetPlasmaStoreInfo();
-    ARROW_LOG(DEBUG)<<"here3?";
     // We are using a single memory-mapped file by mallocing and freeing a single
     // large amount of space up front. According to the documentation,
     // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
@@ -983,12 +1002,12 @@ class PlasmaStoreRunner {
     
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-  std::vector<std::thread> threads(1);
-  for(int i=0; i< threads.size(); i++) {
-    threads[i] = std::thread([&] () {
-      io_context_.run();
-    });
-  }
+    std::vector<std::thread> threads(1);
+    for(int i=0; i< threads.size(); i++) {
+      threads[i] = std::thread([&] () {
+        io_context_.run();
+      });
+    }
     io_context_.run();
   }
 
