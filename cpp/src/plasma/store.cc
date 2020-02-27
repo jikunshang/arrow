@@ -212,7 +212,7 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     ARROW_LOG(DEBUG)<<"wait free space takes " << time_.count() * 1000 << " ms";
   }
   GetMallocMapinfo(pointer, fd, map_size, offset);
-  ARROW_CHECK(*fd != -1);
+  // ARROW_CHECK(*fd != -1);
   return pointer;
 }
 
@@ -679,6 +679,7 @@ void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
   else {
     for(auto object_id : object_ids) {
        EraseFromObjectTable(object_id);
+       eviction_policy_.RemoveObject(object_id);
     }
   }
 }
