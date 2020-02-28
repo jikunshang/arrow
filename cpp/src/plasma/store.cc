@@ -978,7 +978,8 @@ class PlasmaStoreRunner {
   PlasmaStoreRunner() {}
 
   void Start(const std::string& stream_name, std::string directory,
-             bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store) {
+             bool hugepages_enabled, std::shared_ptr<ExternalStore> external_store,
+             int thread_num = 1) {
     signal_set_.async_wait([this](std::error_code ec, int signal) {
       if (signal == SIGTERM) {
         ARROW_LOG(INFO) << "SIGTERM Signal received, closing Plasma Server...";
@@ -1001,7 +1002,9 @@ class PlasmaStoreRunner {
     
     plasma::PlasmaAllocator::Free(
         pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-    std::vector<std::thread> threads(1);
+
+    std::vector<std::thread> threads(thread_num - 1);
+    ARROW_LOG(DEBUG) <<"will start " << thread_num << " threads for server";
     for(int i=0; i< threads.size(); i++) {
       threads[i] = std::thread([&] () {
         io_context_.run();
@@ -1039,8 +1042,9 @@ int main(int argc, char* argv[]) {
   std::string external_store_endpoint;
   bool hugepages_enabled = false;
   int64_t system_memory = -1;
+  int thread_num = 1;
   int c;
-  while ((c = getopt(argc, argv, "s:m:d:e:h")) != -1) {
+  while ((c = getopt(argc, argv, "s:m:d:e:t:h")) != -1) {
     switch (c) {
       case 'd':
         plasma_directory = std::string(optarg);
@@ -1054,6 +1058,10 @@ int main(int argc, char* argv[]) {
       case 's':
         stream_name = optarg;
         break;
+      case 't': {
+        thread_num = atoi(optarg);
+        break;
+      }
       case 'm': {
         char extra;
         int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
@@ -1133,7 +1141,7 @@ int main(int argc, char* argv[]) {
   ARROW_LOG(DEBUG) << "starting server listening on " << stream_name;
   plasma::g_runner.reset(new plasma::PlasmaStoreRunner());
   plasma::g_runner->Start(stream_name, plasma_directory, hugepages_enabled,
-                          external_store);
+                          external_store, thread_num);
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
 
