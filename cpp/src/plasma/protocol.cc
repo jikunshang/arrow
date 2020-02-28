@@ -617,7 +617,6 @@ Status ReadMetricsRequest(const uint8_t* data, size_t size) {
 
 Status SendMetricsReply(const std::shared_ptr<ServerConnection>& client,
                         const PlasmaMetrics* metrics) {
-  std::cout<<"aaa"<<std::endl;
   flatbuffers::FlatBufferBuilder fbb;
   plasma::flatbuf::PlasmaMetrics metrics_(metrics->share_mem_total,
                                           metrics->share_mem_used,

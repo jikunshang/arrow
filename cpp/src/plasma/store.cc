@@ -291,7 +291,9 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
         bool success = eviction_policy_.RequireSpace(total_size, &objects_to_evict);
         EvictObjects(objects_to_evict);
       }
-      return PlasmaError::OutOfMemory;
+      pointer = AllocateMemory(total_size, &fd, &map_size, &offset);
+      if(!pointer )
+        return PlasmaError::OutOfMemory;
     }
   }
 
