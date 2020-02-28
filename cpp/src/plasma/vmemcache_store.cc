@@ -38,7 +38,6 @@ namespace plasma {
 Status VmemcacheStore::Connect(const std::string &endpoint) {
   auto size_start = endpoint.find("size:") + 5;
   auto size_end = endpoint.size();
-  ARROW_LOG(DEBUG) << endpoint << "start:"<< size_start << "end:" <<size_end;
   std::string sizeStr = endpoint.substr(size_start, size_end);
   unsigned long long size = std::stoull(sizeStr);
   if(size == 0) size = CACHE_MAX_SIZE;
@@ -76,9 +75,9 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
     threadPools.push_back(pool);
 
     ARROW_LOG(DEBUG) << "initial vmemcache success!";
-
-    srand((unsigned int)time(NULL));
   }
+  srand((unsigned int)time(NULL));
+
   // try not use lambda function
   threadPools[0]->enqueue( [& ] () {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -88,10 +87,9 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
         std::vector<ObjectID> objIds;
         evictionPolicy_->ChooseObjectsToEvict(evictionPolicy_->Capacity() / 3, &objIds);
         ARROW_LOG(DEBUG)<<"will evict " << objIds.size() 
-        << " objects. Plasma Allocator allocated size is "<<PlasmaAllocator::Allocated();
+          << " objects. Plasma Allocator allocated size is "<<PlasmaAllocator::Allocated();
         std::vector<std::future<int>> ret;
         for(auto objId : objIds) {
-          // ARROW_LOG(DEBUG)<<"evict "<< objId.hex();
           if(Exist(objId).ok()){
             // change states
             auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
@@ -241,7 +239,6 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
       int ret = 0;
       ret = vmemcache_get(cache, id.data(), id.size(),
        (void *)buffer->mutable_data(), buffer->size(), 0, &vSize);
-      // ARROW_LOG(DEBUG) << "vmemcache get returns " << ret;
       if(ret <= 0) {
         ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();
       }
@@ -260,10 +257,8 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
   for (int i = 0; i < total; i++) {
     auto id = ids[i];
     auto buffer = buffers[i];
-
     size_t valueSize = 0;
     for (int j = 0; j < totalNumaNodes; j++) {
-      // ARROW_LOG(DEBUG) << "get objectID " << id.hex();
       size_t keySize = id.size();
       char *key = new char[keySize];
       memcpy(key, id.data(), keySize);
@@ -319,9 +314,9 @@ Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
       int ret = 0;
       ret = vmemcache_get(cache, id.data(), id.size(),
        (void *)buffer->mutable_data(), buffer->size(), 0, &vSize);
-       if(ret <= 0) {
+      if(ret <= 0) 
         ARROW_LOG(WARNING) << "vmemcache get fails! err msg " << vmemcache_errormsg();
-      } else
+      else
         entry->state = ObjectState::PLASMA_SEALED;
     }
   });
@@ -333,7 +328,6 @@ Status VmemcacheStore::Exist(ObjectID id) {
   for (auto cache : caches) {
     size_t valueSize = 0;
     int ret = vmemcache_exists(cache, id.data(), id.size(), &valueSize);
-    // ARROW_LOG(DEBUG) << "object " << id.hex() << " exist return " << ret;
     if (ret == 1) {
       return Status::OK();
     }
@@ -348,12 +342,12 @@ Status VmemcacheStore::RegisterEvictionPolicy(EvictionPolicy* eviction_policy) {
 
 void VmemcacheStore::Metrics(int64_t* memory_total, int64_t* memory_used) {
   *memory_total = totalCacheSize;
-  int64_t memory_used_ =0 ;
-  for(int i =0; i< totalNumaNodes; i++)
+  int64_t memory_used_ = 0;
+  for(int i = 0; i < totalNumaNodes; i++)
   {
     int64_t tmp;
     vmemcache_get_stat(caches[i],VMEMCACHE_STAT_POOL_SIZE_USED, &tmp, sizeof(tmp));
-    memory_used_+=tmp;
+    memory_used_ += tmp;
   }
   *memory_used = memory_used_;
 }

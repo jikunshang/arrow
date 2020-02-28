@@ -631,13 +631,9 @@ Status ReadMetricsReply(const uint8_t* data, size_t size, PlasmaMetrics* metrics
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaMetricsReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
-  // TODO: Decode
-  //  plasma::flatbuf::PlasmaMetrics metrics_ = message->metrics();
   memcpy(metrics, message->metrics(), sizeof(PlasmaMetrics));
   return Status::OK();
-
 }
-
 
 // Connect messages.
 

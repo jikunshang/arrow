@@ -75,8 +75,6 @@ inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_) : stop(fal
       int rc = pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
       if(rc != 0 )
         std::cout<<"initial thread affinity failed!"<<std::endl;
-      // else
-        // std::cout << "Thread id " << i << ", run on cpu " << cpus[i] << std::endl;
       for (;;) {
         std::function<void()> task;
 

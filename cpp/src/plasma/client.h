@@ -188,6 +188,13 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status List(ObjectTable* objects);
 
+  /// Get PlasmaStore memory usage metrics.
+  ///
+  /// This API is experimental and might change in the future.
+  ///
+  /// \param[out] metrics PlasmaStore memory uasge, including total share memory,
+  ///             used share memory, total external memory, used external memory.
+  /// \return The return status.
   Status Metrics(PlasmaMetrics* metrics);
 
   /// Abort an unsealed object in the object store. If the abort succeeds, then

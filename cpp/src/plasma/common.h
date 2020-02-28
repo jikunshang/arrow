@@ -127,15 +127,12 @@ struct ObjectTableEntry {
   int64_t create_time;
   /// How long creation of this object took.
   int64_t construct_duration;
-
   /// The state of the object, e.g., whether it is open or sealed.
   ObjectState state;
   /// The digest of the object. Used to see if two objects are the same.
   unsigned char digest[kDigestSize];
-
-  // change this to #ifdef xxx
+  /// TODO: change this to #ifdef xxx
   int8_t numaNodePostion;
-
   /// Mutex for evict
   std::mutex mtx;
 

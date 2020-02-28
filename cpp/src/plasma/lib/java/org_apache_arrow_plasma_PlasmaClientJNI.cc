@@ -253,8 +253,6 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_list
   client->List(&objectTable);
   jobjectArray ret = env->NewObjectArray(objectTable.size(),
     env->FindClass("[B"), env->NewByteArray(1) );
-  printf("there are %d objects\n", objectTable.size());
-
   int i=0;
   for( auto iter = objectTable.begin(); iter!= objectTable.end(); iter++){
     // printf("%s \n", iter->first.hex());

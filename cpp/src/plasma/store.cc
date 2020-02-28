@@ -568,12 +568,8 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id,
         IncreaseObjectRefCount(object_id, entry);
         status = ObjectStatus::OBJECT_FOUND;
         external_store_->Get(object_id, entry);
-
-        // TODO: AllocateMemory may block, put to backend thread
-
       }
     } else if(entry->state == ObjectState::PLASMA_SEALED) {
-      //todo: this object should not be evicted until get done
       AddToClientObjectIds(object_id, entry, client);
       IncreaseObjectRefCount(object_id, entry);
       status = ObjectStatus::OBJECT_FOUND;
@@ -1132,7 +1128,6 @@ int main(int argc, char* argv[]) {
       ARROW_LOG(FATAL) << "No such external store \"" << name << "\"";
       return -1;
     }
-    ARROW_LOG(DEBUG) << "connecting to external store...";
     ARROW_CHECK_OK(external_store->Connect(external_store_endpoint));
   }
   ARROW_LOG(DEBUG) << "starting server listening on " << stream_name;

@@ -163,7 +163,9 @@ class PlasmaStore {
 
  private:
 
+  // Update memory store and external store metrics
   void UpdateMetrics(PlasmaMetrics *metrics);
+
   // Inform all subscribers that a new object has been sealed.
   void PushObjectReadyNotification(const ObjectID& object_id,
                                    const ObjectTableEntry& entry);
