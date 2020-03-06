@@ -826,12 +826,17 @@ void PlasmaStore::ProcessDisconnectClient(
   ReleaseClientResources(client);
 }
 
+void PlasmaStore::OnKill() {
+  ARROW_LOG(INFO) << "Total process time is " << process_total_time.count() * 1000;
+}
+
 Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>& client,
                                          int64_t message_type, int64_t message_size,
                                          const uint8_t* message_data) {
   auto message_type_value = static_cast<MessageType>(message_type);
   ObjectID object_id;
-
+  
+  auto tic = std::chrono::steady_clock::now();
   // Process the different types of requests.
   switch (message_type_value) {
     case MessageType::PlasmaCreateRequest: {
@@ -968,6 +973,8 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
       // This code should be unreachable.
       ARROW_CHECK(0);
   }
+  auto toc = std::chrono::steady_clock::now();
+  process_total_time += (toc - tic);
   // Listen for more messages.
   client->ProcessMessages();
   return Status::OK();
@@ -984,6 +991,9 @@ class PlasmaStoreRunner {
       if (signal == SIGTERM) {
         ARROW_LOG(INFO) << "SIGTERM Signal received, closing Plasma Server...";
         Stop();
+      }
+      if(signal == SIGKILL) {
+        store_->OnKill();
       }
     });
     // Create the event loop.

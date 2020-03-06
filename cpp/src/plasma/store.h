@@ -161,6 +161,8 @@ class PlasmaStore {
 
   static uint8_t* AllocateMemory(size_t size, int* fd, int64_t* map_size, ptrdiff_t* offset);
 
+  void OnKill();
+
  private:
 
   // Update memory store and external store metrics
@@ -211,6 +213,7 @@ class PlasmaStore {
   Status FreeCudaMemory(int device_num, int64_t size, uint8_t* out_pointer);
 #endif
 
+  std::chrono::duration<double> process_total_time = std::chrono::duration<double>(0);
   /// Accept a client connection.
   void DoAccept();
   /// Handle an accepted client connection.
