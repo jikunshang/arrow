@@ -21,17 +21,18 @@
 
 namespace plasma {
 
-EvictionManager::EvictionManager(EvictionPolicy* eviction_policy, ExternalStore* external_store)
-  :eviction_policy_(eviction_policy), external_store_(external_store) {}
+EvictionManager::EvictionManager(EvictionPolicy* eviction_policy,
+                                 ExternalStore* external_store)
+    : eviction_policy_(eviction_policy), external_store_(external_store) {}
 
 void EvictionManager::start() {
-  std::thread t = std::thread([&] () {
-    while(running) {
-      if(needEvict()) {
+  std::thread t = std::thread([&]() {
+    while (running) {
+      if (needEvict()) {
         doEvict();
       }
     }
-    // log 
+    // log
   });
 }
 
@@ -41,9 +42,8 @@ bool EvictionManager::needEvict() {
 }
 
 void EvictionManager::doEvict() {
-
   uint64_t required_size = calculateRequiredSize();
-   
+
   doEvict(required_size);
 }
 
@@ -51,24 +51,17 @@ void EvictionManager::doEvict(const uint64_t required_size) {
   // 1.Choose which objects to evict
   std::vector<ObjectID> object_ids;
   chooseObjects(required_size, object_ids);
-  // 2.Put these objects to external store 
+  // 2.Put these objects to external store
   doEvict(object_ids);
 }
 
-void EvictionManager::doEvict(const std::vector<ObjectID>& object_ids) {
-  
-}
+void EvictionManager::doEvict(const std::vector<ObjectID>& object_ids) {}
 
-void EvictionManager::chooseObjects(uint64_t required_size, std::vector<ObjectID>& object_ids) {
+void EvictionManager::chooseObjects(uint64_t required_size,
+                                    std::vector<ObjectID>& object_ids) {}
 
-}
+uint64_t EvictionManager::calculateRequiredSize() { return 0; }
 
-uint64_t EvictionManager::calculateRequiredSize() {
-  return 0;
-}
+void EvictionManager::stop() { running = false; }
 
-void EvictionManager::stop() {
-  running = false;
-}
-
-} // namespace plasma
+}  // namespace plasma

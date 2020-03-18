@@ -24,11 +24,12 @@
 #include "plasma/eviction_policy.h"
 #include "plasma/external_store.h"
 
-namespace plasma{
+namespace plasma {
 
 class EvictionManager {
-public: 
-  explicit EvictionManager(EvictionPolicy* eviction_policy, ExternalStore* external_store_);
+ public:
+  explicit EvictionManager(EvictionPolicy* eviction_policy,
+                           ExternalStore* external_store_);
 
   void start();
 
@@ -40,7 +41,7 @@ public:
 
   void doEvict(const uint64_t required_size);
 
-private:
+ private:
   bool needEvict();
   uint64_t calculateRequiredSize();
   void chooseObjects(uint64_t required_size, std::vector<ObjectID>& object_ids);
@@ -49,7 +50,6 @@ private:
   bool running = true;
 };
 
+}  // namespace plasma
 
-} // namespace plasma
-
-#endif //PLASMA_EVICTION_MANAGER_H
+#endif  // PLASMA_EVICTION_MANAGER_H
