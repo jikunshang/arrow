@@ -71,15 +71,28 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
 
     caches.push_back(cache);
 
-    std::shared_ptr<numaThreadPool> pool(new numaThreadPool(i, threadInPools));
-    threadPools.push_back(pool);
+    std::vector<int> getNumaNodeCpu;
+    numaThreadPool::getNumaNodeCpu(i, cpus_in_node);
+    std::vector<int> cpus_for_put(threadInPools);
+    for(int j = 0; j < threadInPools.size(), j++) {
+      cpus_for_put[j] = getNumaNodeCpu[j % getNumaNodeCpu.size()];
+    }
+    std::shared_ptr<numaThreadPool> poolPut(new numaThreadPool(i, threadInPools, cpus_for_put));
+    putThreadPools.push_back(poolPut);
+
+    std::vector<int> cpus_for_get(threadInPools);
+    for(int j = 0; j < threadInPools.size(), j++) {
+      cpus_for_get[j] = getNumaNodeCpu[(j + threadInPools） % getNumaNodeCpu.size()];
+    }
+    std::shared_ptr<numaThreadPool> poolGet(new numaThreadPool(i, threadInPools, cpus_for_get));
+    getThreadPools.push_back(poolGet);
 
     ARROW_LOG(DEBUG) << "initial vmemcache success!";
   }
   srand((unsigned int)time(NULL));
 
   // try not use lambda function
-  threadPools[0]->enqueue( [& ] () {
+  putThreadPools[0]->enqueue( [& ] () {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     while(true) {
       if(evictionPolicy_->RemainingCapacity() <= evictionPolicy_->Capacity() / 3 * 2) {
@@ -100,7 +113,7 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
             continue;              
           }
           int node = rand() % totalNumaNodes;
-          ret.push_back(threadPools[node]->enqueue( [&, objId, node] () {
+          ret.push_back(putThreadPools[node]->enqueue( [&, objId, node] () {
             auto entry = GetObjectTableEntry(evictionPolicy_->getStoreInfo(), objId);
             if(entry == nullptr) {
               ARROW_LOG(WARNING) << "try to evict an object not exist in object table!!! " << objId.hex();
@@ -173,7 +186,7 @@ Status VmemcacheStore::Put(const std::vector<ObjectID> &ids,
       continue;
     // find a random instansce to put
     int numaId = rand() % totalNumaNodes;
-    auto pool = threadPools[numaId];
+    auto pool = putThreadPools[numaId];
     auto cache = caches[numaId];
     size_t keySize = ids[i].size();
     char *key = new char[keySize];
@@ -233,7 +246,7 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
   for (int i = 0; i < total; i++) {
     auto id = ids[i];
     auto buffer = buffers[i];
-    threadPools[entry->numaNodePostion]->enqueue( [&, entry, id, buffer]() {
+    getThreadPools[entry->numaNodePostion]->enqueue( [&, entry, id, buffer]() {
       auto cache = caches[entry->numaNodePostion];
       size_t vSize = size_t(0);
       int ret = 0;
@@ -264,7 +277,7 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
       memcpy(key, id.data(), keySize);
       auto cache = caches[j];
       if (vmemcache_exists(cache, key, keySize, &valueSize) == 1) {
-        auto pool = threadPools[j];
+        auto pool = getThreadPools[j];
 
         size_t *vSize = new size_t(0);
         getParam *param =
@@ -297,7 +310,7 @@ Status VmemcacheStore::Get(const std::vector<ObjectID> &ids,
 
 Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
 
-  threadPools[entry->numaNodePostion]->enqueue( [&, id, entry] () {
+  getThreadPools[entry->numaNodePostion]->enqueue( [&, id, entry] () {
     ARROW_LOG(DEBUG) << "pre fetch object "<<id.hex();
     uint8_t* pointer = PlasmaStore::AllocateMemory(entry->data_size + entry->metadata_size,
        &entry->fd,&entry->map_size, &entry->offset);

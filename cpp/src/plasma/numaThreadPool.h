@@ -55,16 +55,16 @@ private:
   bool stop;
 
   // numa
-  void getNumaNodeCpu(int node, std::vector<int> &cpus);
+  static void getNumaNodeCpu(int node, std::vector<int> &cpus);
   int numaNode;
-  std::vector<int> cpus;
+  // std::vector<int> cpus;
   int threads;
 };
 
 // the constructor just launches some amount of workers
-inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_) : stop(false) {
+inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_, std::vector<int>& cpus) : stop(false) {
   numaNode = numaNode_;
-  getNumaNodeCpu(numaNode, cpus);
+  // getNumaNodeCpu(numaNode, cpus);
   threads = (threads_ < cpus.size()) ? threads_ : cpus.size();
   std::cout << "a thread pool with " << threads << " threads" << std::endl;
   for (int i = 0; i < threads; ++i)
@@ -127,7 +127,7 @@ inline numaThreadPool::~numaThreadPool() {
     worker.join();
 }
 
-void numaThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
+static void numaThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
   int i, err;
   struct bitmask *cpumask;
 

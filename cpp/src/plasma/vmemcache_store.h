@@ -96,9 +96,10 @@ public:
 private:
   void Evict(std::vector<ObjectID> &ids, std::vector<std::shared_ptr<Buffer>> &datas);
   std::vector<VMEMcache *> caches;
-  std::vector<std::shared_ptr<numaThreadPool>> threadPools;
+  std::vector<std::shared_ptr<numaThreadPool>> putThreadPools;
+  std::vector<std::shared_ptr<numaThreadPool>> getThreadPools;
   int totalNumaNodes = 2;
-  int threadInPools = 24;
+  int threadInPools = 12;
   int64_t totalCacheSize= 0;
   EvictionPolicy* evictionPolicy_;
 };
