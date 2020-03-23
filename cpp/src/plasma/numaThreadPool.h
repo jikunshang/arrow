@@ -37,10 +37,11 @@ namespace plasma {
 
 class numaThreadPool {
 public:
-  numaThreadPool(int, size_t);
+  numaThreadPool(int, size_t, std::vector<int>&);
   template <class F, class... Args>
   auto enqueue(F &&f, Args &&... args)
       -> std::future<typename std::result_of<F(Args...)>::type>;
+  static void getNumaNodeCpu(int node, std::vector<int> &cpus);
   ~numaThreadPool();
 
 private:
@@ -55,7 +56,6 @@ private:
   bool stop;
 
   // numa
-  static void getNumaNodeCpu(int node, std::vector<int> &cpus);
   int numaNode;
   // std::vector<int> cpus;
   int threads;
@@ -127,7 +127,7 @@ inline numaThreadPool::~numaThreadPool() {
     worker.join();
 }
 
-static void numaThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
+void numaThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
   int i, err;
   struct bitmask *cpumask;
 

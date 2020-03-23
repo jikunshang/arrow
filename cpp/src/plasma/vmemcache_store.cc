@@ -71,18 +71,18 @@ Status VmemcacheStore::Connect(const std::string &endpoint) {
 
     caches.push_back(cache);
 
-    std::vector<int> getNumaNodeCpu;
+    std::vector<int> cpus_in_node;
     numaThreadPool::getNumaNodeCpu(i, cpus_in_node);
     std::vector<int> cpus_for_put(threadInPools);
-    for(int j = 0; j < threadInPools.size(), j++) {
-      cpus_for_put[j] = getNumaNodeCpu[j % getNumaNodeCpu.size()];
+    for(int j = 0; j < threadInPools; j++) {
+      cpus_for_put[j] = cpus_in_node[j % cpus_in_node.size()];
     }
     std::shared_ptr<numaThreadPool> poolPut(new numaThreadPool(i, threadInPools, cpus_for_put));
     putThreadPools.push_back(poolPut);
 
     std::vector<int> cpus_for_get(threadInPools);
-    for(int j = 0; j < threadInPools.size(), j++) {
-      cpus_for_get[j] = getNumaNodeCpu[(j + threadInPools） % getNumaNodeCpu.size()];
+    for(int j = 0; j < threadInPools; j++) {
+      cpus_for_get[j] = cpus_in_node[(j + threadInPools) % cpus_in_node.size()];
     }
     std::shared_ptr<numaThreadPool> poolGet(new numaThreadPool(i, threadInPools, cpus_for_get));
     getThreadPools.push_back(poolGet);
