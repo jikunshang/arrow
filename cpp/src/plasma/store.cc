@@ -592,6 +592,7 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
     auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
     if(entry == nullptr) {
       ARROW_LOG(WARNING) << "try to seal an object not exist in object table!!! " << object_ids[i].hex();
+      continue;
     }
     ARROW_CHECK(entry != nullptr);
     // ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
