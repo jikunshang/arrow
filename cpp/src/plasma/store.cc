@@ -197,6 +197,8 @@ uint8_t* PlasmaStore::AllocateMemory(size_t size, int* fd, int64_t* map_size,
     // 64-byte aligned, but in practice it often will be.
     pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
     if (pointer) {
+      // allocate success, memset 0
+      memset(pointer, 0, size);
       break;
     }
     waitFlag++;
@@ -456,7 +458,9 @@ Status PlasmaStore::ProcessGetRequest(const std::shared_ptr<ClientConnection>& c
       // we called Conatins earlier, so backend thread is pre-fetch object.
       auto tic = std::chrono::steady_clock::now();
       int retry_time = 0;
-      while(entry->state == ObjectState::PLASMA_EVICTED) {
+      // while(entry->state == ObjectState::PLASMA_EVICTED) {
+      // judge whether pointer valid
+      while(entry->pointer == nullptr) {
         if(retry_time > 500){  // TODO: What if this is a large object?
           ARROW_LOG(WARNING) << "prefetch object " << object_id.hex() << " failed!!!";
           break;

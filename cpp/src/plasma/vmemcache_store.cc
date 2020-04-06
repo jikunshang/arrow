@@ -324,7 +324,7 @@ Status VmemcacheStore::Get(const ObjectID id, ObjectTableEntry *entry) {
                    << ", will send a reply of PlasmaError::OutOfMemory";
     } else {
       entry->pointer = pointer;
-      std::shared_ptr<Buffer> buffer(new arrow::MutableBuffer(entry->pointer, entry->data_size));
+      std::shared_ptr<Buffer> buffer(new arrow::MutableBuffer(entry->pointer, entry->data_size + entry->metadata_size));
       auto cache = caches[entry->numaNodePostion];
       size_t vSize = size_t(0);
       int ret = 0;

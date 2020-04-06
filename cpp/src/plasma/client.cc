@@ -620,6 +620,7 @@ Status PlasmaClient::Impl::GetBuffers(
     DCHECK(received_object_ids[i] == object_ids[i]);
     object = &object_data[i];
     if (object_buffers[i].data) {
+      ARROW_LOG(WARNING) << "fetch object";
       // If the object was already in use by the client, then the store should
       // have returned it.
       DCHECK_NE(object->data_size, -1);
@@ -660,6 +661,16 @@ Status PlasmaClient::Impl::GetBuffers(
       object_buffers[i].data = SliceBuffer(physical_buf, 0, object->data_size);
       object_buffers[i].metadata =
           SliceBuffer(physical_buf, object->data_size, object->metadata_size);
+      
+      // block here, check whether memcopy is done
+      char* metadata = new char[4];
+      memset(metadata, 'x', 4);
+      while(memcmp(object_buffers[i].metadata->data(), metadata, 4) != 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      };
+      delete[] metadata;
+      ARROW_LOG(WARNING) << "get metadata success!";
+      
       object_buffers[i].device_num = object->device_num;
       // Increment the count of the number of instances of this object that this
       // client is using. Cache the reference to the object.
