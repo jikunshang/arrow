@@ -36,15 +36,15 @@
 namespace plasma {
 
 class numaThreadPool {
-public:
+ public:
   numaThreadPool(int, size_t, std::vector<int>&);
   template <class F, class... Args>
-  auto enqueue(F &&f, Args &&... args)
+  auto enqueue(F&& f, Args&&... args)
       -> std::future<typename std::result_of<F(Args...)>::type>;
-  static void getNumaNodeCpu(int node, std::vector<int> &cpus);
+  static void getNumaNodeCpu(int node, std::vector<int>& cpus);
   ~numaThreadPool();
 
-private:
+ private:
   // need to keep track of threads so we can join them
   std::vector<std::thread> workers;
   // the task queue
@@ -62,7 +62,9 @@ private:
 };
 
 // the constructor just launches some amount of workers
-inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_, std::vector<int>& cpus) : stop(false) {
+inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_,
+                                      std::vector<int>& cpus)
+    : stop(false) {
   numaNode = numaNode_;
   // getNumaNodeCpu(numaNode, cpus);
   threads = (threads_ < cpus.size()) ? threads_ : cpus.size();
@@ -73,17 +75,15 @@ inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_, std::vecto
       CPU_ZERO(&cpuset);
       CPU_SET(cpus[i], &cpuset);
       int rc = pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
-      if(rc != 0 )
-        std::cout<<"initial thread affinity failed!"<<std::endl;
+      if (rc != 0) std::cout << "initial thread affinity failed!" << std::endl;
       for (;;) {
         std::function<void()> task;
 
         {
           std::unique_lock<std::mutex> lock(this->queue_mutex);
-          this->condition.wait(
-              lock, [this] { return this->stop || !this->tasks.empty(); });
-          if (this->stop && this->tasks.empty())
-            return;
+          this->condition.wait(lock,
+                               [this] { return this->stop || !this->tasks.empty(); });
+          if (this->stop && this->tasks.empty()) return;
           task = std::move(this->tasks.front());
           this->tasks.pop();
         }
@@ -95,7 +95,7 @@ inline numaThreadPool::numaThreadPool(int numaNode_, size_t threads_, std::vecto
 
 // add new work item to the pool
 template <class F, class... Args>
-auto numaThreadPool::enqueue(F &&f, Args &&... args)
+auto numaThreadPool::enqueue(F&& f, Args&&... args)
     -> std::future<typename std::result_of<F(Args...)>::type> {
   using return_type = typename std::result_of<F(Args...)>::type;
 
@@ -107,8 +107,7 @@ auto numaThreadPool::enqueue(F &&f, Args &&... args)
     std::unique_lock<std::mutex> lock(queue_mutex);
 
     // don't allow enqueueing after stopping the pool
-    if (stop)
-      throw std::runtime_error("enqueue on stopped numaThreadPool");
+    if (stop) throw std::runtime_error("enqueue on stopped numaThreadPool");
 
     tasks.emplace([task]() { (*task)(); });
   }
@@ -123,23 +122,20 @@ inline numaThreadPool::~numaThreadPool() {
     stop = true;
   }
   condition.notify_all();
-  for (std::thread &worker : workers)
-    worker.join();
+  for (std::thread& worker : workers) worker.join();
 }
 
-void numaThreadPool::getNumaNodeCpu(int node, std::vector<int> &cpus) {
+void numaThreadPool::getNumaNodeCpu(int node, std::vector<int>& cpus) {
   int i, err;
-  struct bitmask *cpumask;
+  struct bitmask* cpumask;
 
   cpumask = numa_allocate_cpumask();
   err = numa_node_to_cpus(node, cpumask);
   if (err >= 0) {
     for (i = 0; i < (int)cpumask->size; i++)
-      if (numa_bitmask_isbitset(cpumask, i))
-        cpus.push_back(i);
+      if (numa_bitmask_isbitset(cpumask, i)) cpus.push_back(i);
   }
 }
 
-
-} //namespace plasma
+}  // namespace plasma
 #endif

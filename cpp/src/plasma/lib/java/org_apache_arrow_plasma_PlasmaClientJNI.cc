@@ -212,7 +212,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_get(
       dataBuf = nullptr;
       metadataBuf = nullptr;
       jclass Exception =
-        env->FindClass("org/apache/arrow/plasma/exceptions/PlasmaGetException");
+          env->FindClass("org/apache/arrow/plasma/exceptions/PlasmaGetException");
       env->ThrowNew(Exception, "Get returns an invalid value!");
     }
 
@@ -246,18 +246,20 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_evict(
   return static_cast<jlong>(evicted_bytes);
 }
 
-JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_list(
-    JNIEnv* env, jclass cls, jlong conn) {
+JNIEXPORT jobjectArray JNICALL
+Java_org_apache_arrow_plasma_PlasmaClientJNI_list(JNIEnv* env, jclass cls, jlong conn) {
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
-  plasma::ObjectTable objectTable ;
+  plasma::ObjectTable objectTable;
   client->List(&objectTable);
-  jobjectArray ret = env->NewObjectArray(objectTable.size(),
-    env->FindClass("[B"), env->NewByteArray(1) );
-  int i=0;
-  for( auto iter = objectTable.begin(); iter!= objectTable.end(); iter++){
+  jobjectArray ret =
+      env->NewObjectArray(objectTable.size(), env->FindClass("[B"), env->NewByteArray(1));
+  int i = 0;
+  for (auto iter = objectTable.begin(); iter != objectTable.end(); iter++) {
     // printf("%s \n", iter->first.hex());
     jbyteArray id = env->NewByteArray(OBJECT_ID_SIZE);
-    env->SetByteArrayRegion(id, 0, OBJECT_ID_SIZE, reinterpret_cast<jbyte*>(const_cast<uint8_t*>(iter->first.data())));
+    env->SetByteArrayRegion(
+        id, 0, OBJECT_ID_SIZE,
+        reinterpret_cast<jbyte*>(const_cast<uint8_t*>(iter->first.data())));
     env->SetObjectArrayElement(ret, i, id);
     i++;
   }
@@ -265,15 +267,15 @@ JNIEXPORT jobjectArray JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_list
 }
 
 JNIEXPORT jint JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_metrics(
-  JNIEnv* env, jclass cls, jlong conn, jlongArray metricsArray) {
+    JNIEnv* env, jclass cls, jlong conn, jlongArray metricsArray) {
   plasma::PlasmaClient* client = reinterpret_cast<plasma::PlasmaClient*>(conn);
   plasma::PlasmaMetrics metrics_;
   client->Metrics(&metrics_);
   int64_t* metrics;
-  if(metricsArray != NULL) {
+  if (metricsArray != NULL) {
     metrics = (int64_t*)env->GetPrimitiveArrayCritical(metricsArray, 0);
   }
-  if(metrics == NULL) {
+  if (metrics == NULL) {
     return -1;
   }
   metrics[0] = metrics_.share_mem_total;
@@ -282,9 +284,8 @@ JNIEXPORT jint JNICALL Java_org_apache_arrow_plasma_PlasmaClientJNI_metrics(
   metrics[3] = metrics_.external_used;
 
   if (metricsArray != NULL) {
-    env->ReleasePrimitiveArrayCritical(metricsArray, (void *)metrics, 0);
+    env->ReleasePrimitiveArrayCritical(metricsArray, (void*)metrics, 0);
   }
 
   return 0;
-  
 }

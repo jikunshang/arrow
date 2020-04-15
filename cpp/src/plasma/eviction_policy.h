@@ -19,11 +19,11 @@
 
 #include <functional>
 #include <list>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <mutex>
 
 #include "plasma/common.h"
 #include "plasma/plasma.h"
@@ -115,9 +115,9 @@ class EvictionPolicy {
   /// \param is_create Whether we are creating a new object (vs reading an object).
   virtual void ObjectCreated(const ObjectID& object_id, Client* client, bool is_create);
 
-  virtual void RemoveObject(ObjectID &objecct_id) ;
+  virtual void RemoveObject(ObjectID& objecct_id);
 
-  virtual void AddObject(const ObjectID &object_id, int64_t size);
+  virtual void AddObject(const ObjectID& object_id, int64_t size);
 
   /// Set quota for a client.
   ///
@@ -200,11 +200,11 @@ class EvictionPolicy {
   /// Returns debugging information for this eviction policy.
   virtual std::string DebugString() const;
 
-  virtual int64_t RemainingCapacity() const {return cache_.RemainingCapacity();}
+  virtual int64_t RemainingCapacity() const { return cache_.RemainingCapacity(); }
 
-  virtual int64_t Capacity() const {return cache_.Capacity(); }
+  virtual int64_t Capacity() const { return cache_.Capacity(); }
 
-  virtual PlasmaStoreInfo* getStoreInfo() {return store_info_;}
+  virtual PlasmaStoreInfo* getStoreInfo() { return store_info_; }
 
  protected:
   /// Returns the size of the object

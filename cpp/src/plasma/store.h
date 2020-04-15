@@ -18,21 +18,19 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <mutex>
 
 #include "plasma/common.h"
+#include "plasma/common_generated.h"
 #include "plasma/external_store.h"
 #include "plasma/io/connection.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
 #include "plasma/quota_aware_policy.h"
-#include "plasma/common_generated.h"
-#include "plasma/quota_aware_policy.h"
-#include "plasma/external_store.h"
 
 namespace arrow {
 class Status;
@@ -147,8 +145,8 @@ class PlasmaStore {
   /// \param object_id Object ID that will be checked.
   /// \return OBJECT_FOUND if the object is in the store, OBJECT_NOT_FOUND if
   /// not
-  ObjectStatus ContainsObject(const ObjectID& object_id, 
-			      const std::shared_ptr<ClientConnection>& client);
+  ObjectStatus ContainsObject(const ObjectID& object_id,
+                              const std::shared_ptr<ClientConnection>& client);
 
   /// Record the fact that a particular client is no longer using an object.
   ///
@@ -169,9 +167,8 @@ class PlasmaStore {
   void OnKill();
 
  private:
-
   // Update memory store and external store metrics
-  void UpdateMetrics(PlasmaMetrics *metrics);
+  void UpdateMetrics(PlasmaMetrics* metrics);
 
   // Inform all subscribers that a new object has been sealed.
   void PushObjectReadyNotification(const ObjectID& object_id,

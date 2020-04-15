@@ -525,7 +525,8 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
   //   // the host.
   //   uint64_t hash = ComputeObjectHash(
   //       reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-  //       reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+  //       reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(),
+  //       device_num);
   //   digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
   //   digests.push_back(digest);
   // }
@@ -786,7 +787,6 @@ Status PlasmaClient::Impl::Metrics(PlasmaMetrics* metrics) {
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaMetricsReply, &buffer));
   return ReadMetricsReply(buffer.data(), buffer.size(), metrics);
-
 }
 
 static void ComputeBlockHash(const unsigned char* data, int64_t nbytes, uint64_t* hash) {
@@ -880,8 +880,7 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   std::vector<uint8_t> digest(kDigestSize);
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
   std::string s = std::string(digest.begin(), digest.end());
-  RETURN_NOT_OK(
-      SendSealRequest(store_conn_, object_id,  (unsigned char*)s.c_str()));
+  RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, (unsigned char*)s.c_str()));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSealReply, &buffer));
   ObjectID sealed_id;
@@ -1075,8 +1074,8 @@ Status PlasmaClient::Impl::SetClientOptions(const std::string& client_name,
   // std::lock_guard<std::recursive_mutex> guard(client_mutex_);
   // RETURN_NOT_OK(SendSetOptionsRequest(store_conn_, client_name, output_memory_quota));
   // std::vector<uint8_t> buffer;
-  // RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply, &buffer));
-  // return ReadSetOptionsReply(buffer.data(), buffer.size());
+  // RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply,
+  // &buffer)); return ReadSetOptionsReply(buffer.data(), buffer.size());
   return Status::OK();
 }
 

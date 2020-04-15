@@ -68,7 +68,7 @@ Status ReadGetDebugStringReply(const uint8_t* data, size_t size,
 /* Plasma Create message functions. */
 
 Status SendCreateRequest(const std::shared_ptr<ServerConnection>& client,
-                         ObjectID object_id, bool evict_if_full,int64_t data_size,
+                         ObjectID object_id, bool evict_if_full, int64_t data_size,
                          int64_t metadata_size, int device_num);
 
 Status ReadCreateRequest(const uint8_t* data, size_t size, ObjectID* object_id,

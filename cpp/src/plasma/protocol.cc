@@ -17,8 +17,8 @@
 
 #include "plasma/protocol.h"
 
-#include <utility>
 #include <iostream>
+#include <utility>
 
 #include "arrow/util/logging.h"
 #include "flatbuffers/flatbuffers.h"
@@ -163,13 +163,14 @@ Status ReadSetOptionsReply(const uint8_t* data, size_t size) {
 // TODO(suquark): Get rid of raw socket handle
 // Status SendGetDebugStringReply(int sock, const std::string& debug_string) {
 //   flatbuffers::FlatBufferBuilder fbb;
-//   auto message = fb::CreatePlasmaGetDebugStringReply(fbb, fbb.CreateString(debug_string));
-//   return PlasmaSend(sock, MessageType::PlasmaGetDebugStringReply, &fbb, message);
+//   auto message = fb::CreatePlasmaGetDebugStringReply(fbb,
+//   fbb.CreateString(debug_string)); return PlasmaSend(sock,
+//   MessageType::PlasmaGetDebugStringReply, &fbb, message);
 
 // Create messages.
 
 Status SendCreateRequest(const std::shared_ptr<ServerConnection>& client,
-                         ObjectID object_id, bool evict_if_full,int64_t data_size,
+                         ObjectID object_id, bool evict_if_full, int64_t data_size,
                          int64_t metadata_size, int device_num) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = fb::CreatePlasmaCreateRequest(fbb, fbb.CreateString(object_id.binary()),
@@ -621,18 +622,15 @@ Status SendMetricsRequest(const std::shared_ptr<ServerConnection>& client) {
   return PlasmaSend(client, MessageType::PlasmaMetricsRequest, &fbb);
 }
 
-Status ReadMetricsRequest(const uint8_t* data, size_t size) {
-  return Status::OK();
-}
+Status ReadMetricsRequest(const uint8_t* data, size_t size) { return Status::OK(); }
 
 Status SendMetricsReply(const std::shared_ptr<ServerConnection>& client,
                         const PlasmaMetrics* metrics) {
   flatbuffers::FlatBufferBuilder fbb;
-  plasma::flatbuf::PlasmaMetrics metrics_(metrics->share_mem_total,
-                                          metrics->share_mem_used,
-                                          metrics->external_total,
-                                          metrics->external_used);
-  auto message = fb::CreatePlasmaMetricsReply(fbb, &metrics_);   
+  plasma::flatbuf::PlasmaMetrics metrics_(
+      metrics->share_mem_total, metrics->share_mem_used, metrics->external_total,
+      metrics->external_used);
+  auto message = fb::CreatePlasmaMetricsReply(fbb, &metrics_);
   fbb.Finish(message);
   return PlasmaSend(client, MessageType::PlasmaMetricsReply, &fbb);
 }
@@ -888,10 +886,10 @@ Status ReadRefreshLRURequest(const uint8_t* data, size_t size,
 //   info.object_id = object_id.binary();
 //   info.data_size = entry.data_size;
 //   info.metadata_size = entry.metadata_size;
-//   info.digest = std::string(reinterpret_cast<const char*>(&entry.digest[0]), kDigestSize);
-//   flatbuffers::FlatBufferBuilder fbb;
-//   auto message = fb::CreatePlasmaRefreshLRUReply(fbb);
-//   return PlasmaSend(sock, MessageType::PlasmaRefreshLRUReply, &fbb, message);
+//   info.digest = std::string(reinterpret_cast<const char*>(&entry.digest[0]),
+//   kDigestSize); flatbuffers::FlatBufferBuilder fbb; auto message =
+//   fb::CreatePlasmaRefreshLRUReply(fbb); return PlasmaSend(sock,
+//   MessageType::PlasmaRefreshLRUReply, &fbb, message);
 // }
 
 Status ReadRefreshLRUReply(const uint8_t* data, size_t size) {

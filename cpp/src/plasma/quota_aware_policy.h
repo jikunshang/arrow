@@ -25,10 +25,10 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/logging.h"
 #include "plasma/common.h"
 #include "plasma/eviction_policy.h"
 #include "plasma/plasma.h"
-#include "arrow/util/logging.h"
 
 namespace plasma {
 

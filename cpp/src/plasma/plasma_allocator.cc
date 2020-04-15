@@ -36,7 +36,7 @@ void* PlasmaAllocator::Memalign(size_t alignment, size_t bytes) {
     std::lock_guard<std::mutex> lck(PlasmaAllocator::mtx);
     if (allocated_ + static_cast<int64_t>(bytes) > footprint_limit_) {
       return nullptr;
-    }  
+    }
     mem = dlmemalign(alignment, bytes);
     allocated_ += bytes;
   }

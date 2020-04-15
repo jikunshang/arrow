@@ -17,9 +17,9 @@
 
 #include "arrow/util/logging.h"
 
-#include "plasma/plasma.h"
-#include "plasma/common_generated.h"
 #include "plasma/common.h"
+#include "plasma/common_generated.h"
+#include "plasma/plasma.h"
 
 namespace plasma {
 

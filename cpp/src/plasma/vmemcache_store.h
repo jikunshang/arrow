@@ -18,9 +18,9 @@
 #ifndef VMEMCACHE_STORE_H
 #define VMEMCACHE_STORE_H
 
+#include "plasma/eviction_policy.h"
 #include "plasma/external_store.h"
 #include "plasma/numaThreadPool.h"
-#include "plasma/eviction_policy.h"
 
 #include <libvmemcache.h>
 
@@ -30,13 +30,13 @@ namespace plasma {
 
 #pragma pack(push, 1)
 class putParam {
-public:
-  VMEMcache *cache;
-  void *key;
+ public:
+  VMEMcache* cache;
+  void* key;
   size_t keySize;
-  void *value;
+  void* value;
   size_t valueSize;
-  putParam(VMEMcache *cache_, void *key_, size_t keySize_, void *value_,
+  putParam(VMEMcache* cache_, void* key_, size_t keySize_, void* value_,
            size_t valueSize_) {
     cache = cache_;
     key = key_;
@@ -47,17 +47,17 @@ public:
 };
 
 class getParam {
-public:
-  VMEMcache *cache;
-  void *key;
+ public:
+  VMEMcache* cache;
+  void* key;
   size_t key_size;
-  void *vbuf;
+  void* vbuf;
   size_t vbufsize;
   size_t offset;
-  size_t *vsize;
+  size_t* vsize;
 
-  getParam(VMEMcache *cache_, void *key_, size_t key_size_, void *vbuf_,
-           size_t vbufsize_, size_t offset_, size_t *vSize_) {
+  getParam(VMEMcache* cache_, void* key_, size_t key_size_, void* vbuf_, size_t vbufsize_,
+           size_t offset_, size_t* vSize_) {
     cache = cache_;
     key = key_;
     key_size = key_size_;
@@ -70,41 +70,40 @@ public:
 #pragma pack(pop)
 
 class VmemcacheStore : public ExternalStore {
-public:
+ public:
   VmemcacheStore() = default;
 
-  Status Connect(const std::string &endpoint) override;
+  Status Connect(const std::string& endpoint) override;
 
-  Status Get(const std::vector<ObjectID> &ids,
+  Status Get(const std::vector<ObjectID>& ids,
              std::vector<std::shared_ptr<Buffer>> buffers) override;
 
-  Status Get(const std::vector<ObjectID> &ids,
+  Status Get(const std::vector<ObjectID>& ids,
              std::vector<std::shared_ptr<Buffer>> buffers,
-             ObjectTableEntry *entry) override;
-  Status Get(const ObjectID id, ObjectTableEntry *entry) override;
+             ObjectTableEntry* entry) override;
+  Status Get(const ObjectID id, ObjectTableEntry* entry) override;
 
-  Status Put(const std::vector<ObjectID> &ids,
-             const std::vector<std::shared_ptr<Buffer>> &data) override;
-  Status Put(const std::vector<ObjectID> &ids,
-             const std::vector<std::shared_ptr<Buffer>> &data,
-             int numaId);
+  Status Put(const std::vector<ObjectID>& ids,
+             const std::vector<std::shared_ptr<Buffer>>& data) override;
+  Status Put(const std::vector<ObjectID>& ids,
+             const std::vector<std::shared_ptr<Buffer>>& data, int numaId);
 
   Status Exist(ObjectID id) override;
-  static std::string hex(char *id);
-  Status RegisterEvictionPolicy(EvictionPolicy *eviction_policy) override;
-  void Metrics(int64_t *memory_total, int64_t *memory_used) override;
+  static std::string hex(char* id);
+  Status RegisterEvictionPolicy(EvictionPolicy* eviction_policy) override;
+  void Metrics(int64_t* memory_total, int64_t* memory_used) override;
 
-private:
-  void Evict(std::vector<ObjectID> &ids, std::vector<std::shared_ptr<Buffer>> &datas);
-  std::vector<VMEMcache *> caches;
+ private:
+  void Evict(std::vector<ObjectID>& ids, std::vector<std::shared_ptr<Buffer>>& datas);
+  std::vector<VMEMcache*> caches;
   std::vector<std::shared_ptr<numaThreadPool>> putThreadPools;
   std::vector<std::shared_ptr<numaThreadPool>> getThreadPools;
   int totalNumaNodes = 2;
   int threadInPools = 12;
   int64_t totalCacheSize = 0;
-  EvictionPolicy *evictionPolicy_;
+  EvictionPolicy* evictionPolicy_;
 };
 
-} // namespace plasma
+}  // namespace plasma
 
 #endif

@@ -86,7 +86,7 @@ class TestPlasmaStore : public ::testing::Test {
                     const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
     ASSERT_OK(client.Create(object_id, data.size(), &metadata[0], metadata.size(),
-                                 &data_buffer));
+                            &data_buffer));
     for (size_t i = 0; i < data.size(); i++) {
       data_buffer->mutable_data()[i] = data[i];
     }
@@ -154,7 +154,6 @@ TEST_F(TestPlasmaStore, MetricsTest) {
   ASSERT_TRUE(metrics.share_mem_used == 0);
   ASSERT_EQ(0, metrics.external_total);
   ASSERT_EQ(0, metrics.external_used);
-
 }
 
 TEST_F(TestPlasmaStore, SealErrorsTest) {

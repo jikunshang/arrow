@@ -129,9 +129,8 @@ TEST_F(TestPlasmaSerialization, CreateRequest) {
   int64_t data_size1 = 42;
   int64_t metadata_size1 = 11;
   int device_num1 = 0;
-  ASSERT_OK(
-      SendCreateRequest(client_, object_id1, /*evict_if_full=*/true,
-                        data_size1, metadata_size1, device_num1));
+  ASSERT_OK(SendCreateRequest(client_, object_id1, /*evict_if_full=*/true, data_size1,
+                              metadata_size1, device_num1));
   std::vector<uint8_t> data;
   ASSERT_OK(PlasmaReceive(server_, MessageType::PlasmaCreateRequest, &data));
   ObjectID object_id2;

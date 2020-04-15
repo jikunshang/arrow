@@ -22,8 +22,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "plasma/external_store.h"
 #include "plasma/eviction_policy.h"
+#include "plasma/external_store.h"
 
 namespace plasma {
 
@@ -39,12 +39,11 @@ class HashTableStore : public ExternalStore {
   Status Get(const std::vector<ObjectID>& ids,
              std::vector<std::shared_ptr<Buffer>> buffers) override;
 
-  Status Get(const std::vector<ObjectID> &ids,
+  Status Get(const std::vector<ObjectID>& ids,
              std::vector<std::shared_ptr<Buffer>> buffers,
-             ObjectTableEntry *entry) override;
+             ObjectTableEntry* entry) override;
 
-  Status Get(const ObjectID id, 
-             ObjectTableEntry *entry) override;
+  Status Get(const ObjectID id, ObjectTableEntry* entry) override;
 
   Status Put(const std::vector<ObjectID>& ids,
              const std::vector<std::shared_ptr<Buffer>>& data) override;
