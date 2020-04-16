@@ -129,12 +129,6 @@ public class PlasmaClient implements ObjectStoreLink {
     return buf;
   }
 
-  public ByteBuffer getByteBuffer(byte[] objectId, int timeoutMs, boolean isMetadata) {
-    byte[][] objectIds = new byte[][]{objectId};
-    ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
-    return bufs[0][isMetadata ? 1 : 0];
-  }
-
   // wrapper methods --------------------
 
   /**
@@ -201,7 +195,7 @@ public class PlasmaClient implements ObjectStoreLink {
    * Check if the object is present and has been sealed in the PlasmaStore.
    *
    * @param metrics used to return metrics, array size is 4, elements are: total memory size,
-   * used memory size, total external size, used external size.
+   *        used memory size, total external size, used external size.
    */
   @Override
   public int metrics(long[] metrics) {
