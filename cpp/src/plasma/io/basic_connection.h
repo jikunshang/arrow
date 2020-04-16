@@ -29,8 +29,8 @@
 #include <utility>
 #include <vector>
 
-#include <boost/system/error_code.hpp>
 #include <boost/asio.hpp>
+#include <boost/system/error_code.hpp>
 
 #include "arrow/status.h"
 

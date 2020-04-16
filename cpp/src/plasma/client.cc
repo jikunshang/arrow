@@ -36,10 +36,6 @@
 #include "arrow/buffer.h"
 #include "arrow/util/thread_pool.h"
 
-// #include "plasma/common.h"
-// #include "plasma/malloc.h"
-// #include "plasma/protocol.h"
-
 #include "plasma/common.h"
 #include "plasma/fling.h"
 #include "plasma/malloc.h"
@@ -513,31 +509,7 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
                                               const std::vector<std::string>& metadata,
                                               bool evict_if_full) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-
-  // ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
-
-  // int device_num = 0;
-  // std::vector<std::string> digests;
-  // for (size_t i = 0; i < object_ids.size(); i++) {
-  //   // Compute the object hash.
-  //   std::string digest;
-  //   // CreateAndSeal currently only supports device_num = 0, which corresponds to
-  //   // the host.
-  //   uint64_t hash = ComputeObjectHash(
-  //       reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-  //       reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(),
-  //       device_num);
-  //   digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
-  //   digests.push_back(digest);
-  // }
-
-  // RETURN_NOT_OK(
-  //     SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
-  // std::vector<uint8_t> buffer;
-  // RETURN_NOT_OK(
-  //     PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
-  // RETURN_NOT_OK(ReadCreateAndSealBatchReply(buffer.data(), buffer.size()));
-
+  // TODO(kunshang): Not supported for now
   return Status::OK();
 }
 
@@ -976,13 +948,8 @@ Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) 
 
 Status PlasmaClient::Impl::Refresh(const std::vector<ObjectID>& object_ids) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-
+  // TODO(kunshang): Not supported for now
   return Status::OK();
-  // RETURN_NOT_OK(SendRefreshLRURequest(store_conn_, object_ids));
-  // std::vector<uint8_t> buffer;
-  // MessageType type;
-  // RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
-  // return ReadRefreshLRUReply(buffer.data(), buffer.size());
 }
 
 Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
@@ -1071,11 +1038,7 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name) {
 
 Status PlasmaClient::Impl::SetClientOptions(const std::string& client_name,
                                             int64_t output_memory_quota) {
-  // std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-  // RETURN_NOT_OK(SendSetOptionsRequest(store_conn_, client_name, output_memory_quota));
-  // std::vector<uint8_t> buffer;
-  // RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply,
-  // &buffer)); return ReadSetOptionsReply(buffer.data(), buffer.size());
+  // TODO(kunshang): Not supported for now
   return Status::OK();
 }
 

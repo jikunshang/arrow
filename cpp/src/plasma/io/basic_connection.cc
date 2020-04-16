@@ -32,7 +32,7 @@ namespace io {
 /// \param socket_name The name/path of the socket.
 /// \return Status.
 error_code UnixDomainSocketConnect(asio::local::stream_protocol::socket& socket,
-                                        const std::string& socket_name) {
+                                   const std::string& socket_name) {
   asio::local::stream_protocol::endpoint endpoint(socket_name);
   error_code ec;
   socket.connect(endpoint, ec);
@@ -92,8 +92,8 @@ template <class T>
 Connection<T>::~Connection() {
   // If there are any pending messages, invoke their callbacks with an IOError status.
   for (const auto& write_buffer : async_write_queue_) {
-    write_buffer->Handle(
-        error_code(static_cast<int>(boost::system::errc::io_error), boost::system::system_category()));
+    write_buffer->Handle(error_code(static_cast<int>(boost::system::errc::io_error),
+                                    boost::system::system_category()));
   }
 }
 
@@ -118,8 +118,7 @@ error_code Connection<T>::ReadBuffer(const asio::mutable_buffer& buffer) {
 }
 
 template <class T>
-error_code Connection<T>::ReadBuffer(
-    const std::vector<asio::mutable_buffer>& buffer) {
+error_code Connection<T>::ReadBuffer(const std::vector<asio::mutable_buffer>& buffer) {
   // Loop until all bytes are read while handling interrupts.
   for (const auto& b : buffer) {
     auto ec = ReadBuffer(b);
@@ -154,8 +153,7 @@ error_code Connection<T>::WriteBuffer(const asio::const_buffer& buffer) {
 }
 
 template <class T>
-error_code Connection<T>::WriteBuffer(
-    const std::vector<asio::const_buffer>& buffer) {
+error_code Connection<T>::WriteBuffer(const std::vector<asio::const_buffer>& buffer) {
   error_code error;
   // Loop until all bytes are written while handling interrupts.
   // When profiling with pprof, unhandled interrupts were being sent by the profiler to
@@ -221,9 +219,9 @@ void Connection<T>::DoAsyncWrites() {
 
   // Ensure lambda holds a reference to this.
   auto this_ptr = this->shared_from_this();
-  asio::async_write(stream_, message_buffers,
-    [this, this_ptr, num_messages](const error_code& ec,
-                                   size_t bytes_transferred) {
+  asio::async_write(
+    stream_, message_buffers,
+    [this, this_ptr, num_messages](const error_code& ec, size_t bytes_transferred) {
       bytes_written_ += bytes_transferred;
       bool close_connection = false;
       // Call the handlers for the written messages.
