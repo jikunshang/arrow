@@ -978,7 +978,6 @@ Status PlasmaClient::Impl::Subscribe() {
   auto conn = ServerConnection::Create(std::move(stream));
   notification_conn_ = std::move(conn);
   // Tell the Plasma store about the subscription.
-  // return SendSubscribeRequest(notification_conn_);
   return Status::OK();
 }
 
