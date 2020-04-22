@@ -220,31 +220,31 @@ void Connection<T>::DoAsyncWrites() {
   // Ensure lambda holds a reference to this.
   auto this_ptr = this->shared_from_this();
   asio::async_write(
-    stream_, message_buffers,
-    [this, this_ptr, num_messages](const error_code& ec, size_t bytes_transferred) {
-      bytes_written_ += bytes_transferred;
-      bool close_connection = false;
-      // Call the handlers for the written messages.
-      for (int i = 0; i < num_messages; i++) {
-        auto write_buffer = std::move(async_write_queue_.front());
-        auto return_code = write_buffer->Handle(ec);
-        if (return_code != AsyncWriteCallbackCode::OK) {
-          close_connection = true;
+      stream_, message_buffers,
+      [this, this_ptr, num_messages](const error_code& ec, size_t bytes_transferred) {
+        bytes_written_ += bytes_transferred;
+        bool close_connection = false;
+        // Call the handlers for the written messages.
+        for (int i = 0; i < num_messages; i++) {
+          auto write_buffer = std::move(async_write_queue_.front());
+          auto return_code = write_buffer->Handle(ec);
+          if (return_code != AsyncWriteCallbackCode::OK) {
+            close_connection = true;
+          }
+          async_write_queue_.pop_front();  // release object
         }
-        async_write_queue_.pop_front();  // release object
-      }
-      // We finished writing, so mark that we're no longer doing an
-      // async write.
-      async_write_in_flight_ = false;
-      if (close_connection) {
-        Close();
-        return;
-      }
-      // If there is more to write, try to write the rest.
-      if (!async_write_queue_.empty()) {
-        DoAsyncWrites();
-      }
-    });
+        // We finished writing, so mark that we're no longer doing an
+        // async write.
+        async_write_in_flight_ = false;
+        if (close_connection) {
+          Close();
+          return;
+        }
+        // If there is more to write, try to write the rest.
+        if (!async_write_queue_.empty()) {
+          DoAsyncWrites();
+        }
+      });
 }
 
 // We have to fill the template of all possible types.
