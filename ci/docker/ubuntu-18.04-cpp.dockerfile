@@ -55,6 +55,7 @@ RUN apt-get update -y -q && \
         libboost-filesystem-dev \
         libboost-regex-dev \
         libboost-system-dev \
+        libnuma-dev \
         libbrotli-dev \
         libbz2-dev \
         libgflags-dev \
@@ -73,6 +74,14 @@ RUN apt-get update -y -q && \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+# TO PASS CI, INSTALL libvmemcache
+RUN git clone https://github.com/pmem/vmemcache.git /tmp/vmemcache
+    cd /tmp/vmemcache
+    mkdir build && cd build
+    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCPACK_GENERATOR=deb
+    make package
+    sudo dpkg -i libvmemcache*.deb
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
