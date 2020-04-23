@@ -44,6 +44,14 @@ fi
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
+# TO PASS CI, INSTALL libvmemcache
+git clone https://github.com/pmem/vmemcache.git /tmp/vmemcache
+cd /tmp/vmemcache
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=~/libvmemcache-bin
+make 
+make insatll
+
 cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_BOOST_USE_SHARED=${ARROW_BOOST_USE_SHARED:-ON} \
       -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \

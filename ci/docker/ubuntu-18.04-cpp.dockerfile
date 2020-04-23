@@ -75,14 +75,6 @@ RUN apt-get update -y -q && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-# TO PASS CI, INSTALL libvmemcache
-RUN git clone https://github.com/pmem/vmemcache.git /tmp/vmemcache
-    cd /tmp/vmemcache
-    mkdir build && cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCPACK_GENERATOR=deb
-    make package
-    sudo dpkg -i libvmemcache*.deb
-
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
