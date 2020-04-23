@@ -50,7 +50,7 @@ cd /tmp/vmemcache
 mkdir build && cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=~/libvmemcache-bin
 make 
-make insatll
+make install
 
 cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_BOOST_USE_SHARED=${ARROW_BOOST_USE_SHARED:-ON} \
