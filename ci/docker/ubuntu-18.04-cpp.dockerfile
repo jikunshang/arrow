@@ -52,9 +52,7 @@ RUN apt-get update -y -q && \
         gdb \
         git \
         libbenchmark-dev \
-        libboost-filesystem-dev \
-        libboost-regex-dev \
-        libboost-system-dev \
+	libboost1.65-all-dev
         libnuma-dev \
         libbrotli-dev \
         libbz2-dev \
