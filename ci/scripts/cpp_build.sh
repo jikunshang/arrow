@@ -135,7 +135,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       ${CMAKE_ARGS} \
       ${source_dir}
 
-time cmake --build . --target --ignore
+make --ignore
 time cmake --build . --target install
 
 popd
