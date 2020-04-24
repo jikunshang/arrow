@@ -47,7 +47,7 @@ pushd /tmp/vmemcache
 mkdir build && cd build
 cmake .. -DCMAKE_INSTALL_PREFIX=~/libvmemcache-bin
 make --ignore 
-make --igonre install 
+make install 
 popd
 
 mkdir -p ${build_dir}
