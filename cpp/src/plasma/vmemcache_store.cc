@@ -138,10 +138,11 @@ Status VmemcacheStore::Connect(const std::string& endpoint) {
                 << "To evict an object, there must be no clients currently using it.";
             entry->numaNodePostion = node;
             entry->state = ObjectState::PLASMA_EVICTED;
-            Put({objId},
-                {std::make_shared<arrow::Buffer>(
-                    entry->pointer, entry->data_size + entry->metadata_size)},
-                node);
+            auto status =
+                Put({objId},
+                    {std::make_shared<arrow::Buffer>(
+                        entry->pointer, entry->data_size + entry->metadata_size)},
+                    node);
             PlasmaAllocator::Free(entry->pointer,
                                   entry->data_size + entry->metadata_size);
             entry->pointer = nullptr;
@@ -150,7 +151,7 @@ Status VmemcacheStore::Connect(const std::string& endpoint) {
             return 0;
           }));
         }
-        for (int i = 0; i < ret.size(); i++) ret[i].get();
+        for (auto i = 0; i < ret.size(); i++) ret[i].get();
         auto toc = std::chrono::steady_clock::now();
         std::chrono::duration<double> time_ = toc - tic;
         ARROW_LOG(DEBUG) << "Eviction done, takes " << time_.count() * 1000 << " ms";
