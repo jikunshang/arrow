@@ -45,7 +45,7 @@ fi
 git clone https://github.com/pmem/vmemcache.git /tmp/vmemcache
 pushd /tmp/vmemcache
 mkdir build && cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=~/libvmemcache-bin
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr/
 make --ignore 
 make install 
 popd
