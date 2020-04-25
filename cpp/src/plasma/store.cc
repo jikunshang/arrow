@@ -152,7 +152,12 @@ PlasmaStore::PlasmaStore(asio::io_context& io_context, std::string directory,
       stream_name_(stream_name),
       acceptor_(io::CreateLocalAcceptor(io_context, stream_name)),
       stream_(io_context) {
-  if (external_store_) external_store_->RegisterEvictionPolicy(&eviction_policy_);
+  if (external_store_) {
+    auto status = external_store_->RegisterEvictionPolicy(&eviction_policy_);
+    if (!status.ok()) {
+      ARROW_LOG(ERROR) << "RegisterEvictionPolicy failed" ;
+    }
+  }
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
   store_info_.objects.reserve(50000);
@@ -289,6 +294,9 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, bool evict_if_f
       if (!external_store_) {
         std::vector<ObjectID> objects_to_evict;
         bool success = eviction_policy_.RequireSpace(total_size, &objects_to_evict);
+        if (!success) {
+          ARROW_LOG(ERROR) << "RequireSpace failed" ;
+        }
         EvictObjects(objects_to_evict);
       }
       pointer = AllocateMemory(total_size, evict_if_full, &fd, &map_size, &offset, client,
@@ -575,7 +583,7 @@ ObjectStatus PlasmaStore::ContainsObject(
         AddToClientObjectIds(object_id, entry, client);
         IncreaseObjectRefCount(object_id, entry);
         status = ObjectStatus::OBJECT_FOUND;
-        external_store_->Get(object_id, entry);
+        auto status = external_store_->Get(object_id, entry);
       }
     } else if (entry->state == ObjectState::PLASMA_SEALED) {
       AddToClientObjectIds(object_id, entry, client);
@@ -725,11 +733,11 @@ void PlasmaStore::SubscribeToUpdates(const std::shared_ptr<ClientConnection>& cl
   notification_clients_.insert(client);
 
   // Push notifications to the new subscriber about existing sealed objects.
-  for (const auto& entry : store_info_.objects) {
-    // if (entry.second->state == ObjectState::PLASMA_SEALED) {
-    //   client->SendObjectReadyAsync(entry.first, *entry.second);
-    // }
-  }
+  // for (const auto& entry : store_info_.objects) {
+  //   if (entry.second->state == ObjectState::PLASMA_SEALED) {
+  //     client->SendObjectReadyAsync(entry.first, *entry.second);
+  //   }
+  // }
 }
 
 void PlasmaStore::UpdateMetrics(PlasmaMetrics* metrics) {
@@ -905,7 +913,10 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
         DecreaseObjectRefCount(object_id, entry);
       }
 
-      SendCreateAndSealReply(client, error_code);
+      auto status = SendCreateAndSealReply(client, error_code);
+      if (!status.ok()) {
+        ARROW_LOG(ERROR) << "SendCreateAndSealReply failed" ;
+      }
       // Reply to the client.
       // HANDLE_SIGPIPE(SendCreateAndSealReply(client, error_code), client->fd);
     } break;
@@ -1004,7 +1015,10 @@ Status PlasmaStore::ProcessClientMessage(const std::shared_ptr<ClientConnection>
       digest.reserve(kDigestSize);
       RETURN_NOT_OK(ReadSealRequest(message_data, message_size, &object_id, &digest));
       SealObjects({object_id}, {digest});
-      SendSealReply(client, object_id, PlasmaError::OK);
+      auto status = SendSealReply(client, object_id, PlasmaError::OK);
+      if (!status.ok()) {
+        ARROW_LOG(ERROR) << "SendSealReply failed" ;
+      }
       // HANDLE_SIGPIPE(SendSealReply(client->fd, object_id, PlasmaError::OK),
       // client->fd);
     } break;
@@ -1080,7 +1094,7 @@ class PlasmaStoreRunner {
 
     std::vector<std::thread> threads(thread_num - 1);
     ARROW_LOG(DEBUG) << "will start " << thread_num << " threads for server";
-    for (int i = 0; i < threads.size(); i++) {
+    for (unsigned long i = 0; i < threads.size(); i++) {
       threads[i] = std::thread([&]() { io_context_.run(); });
     }
     io_context_.run();
