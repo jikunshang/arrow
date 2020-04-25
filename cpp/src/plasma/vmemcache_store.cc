@@ -151,7 +151,7 @@ Status VmemcacheStore::Connect(const std::string& endpoint) {
             return 0;
           }));
         }
-        for (auto i = 0; i < ret.size(); i++) ret[i].get();
+        for (unsigned long i = 0; i < ret.size(); i++) ret[i].get();
         auto toc = std::chrono::steady_clock::now();
         std::chrono::duration<double> time_ = toc - tic;
         ARROW_LOG(DEBUG) << "Eviction done, takes " << time_.count() * 1000 << " ms";
