@@ -149,7 +149,7 @@ class TestPlasmaStore : public ::testing::Test {
 
 TEST_F(TestPlasmaStore, MetricsTest) {
   PlasmaMetrics metrics;
-  client_.Metrics(&metrics);
+  auto status = client_.Metrics(&metrics);
   ASSERT_EQ(10000000, metrics.share_mem_total);
   ASSERT_TRUE(metrics.share_mem_used == 0);
   ASSERT_EQ(0, metrics.external_total);
@@ -160,6 +160,7 @@ TEST_F(TestPlasmaStore, SealErrorsTest) {
   ObjectID object_id = random_object_id();
 
   Status result = client_.Seal(object_id);
+  ASSERT_TRUE(result.ok());
   ASSERT_TRUE(IsPlasmaObjectNotFound(result));
 
   // Create object.
