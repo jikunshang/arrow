@@ -52,7 +52,7 @@ RUN apt-get update -y -q && \
         gdb \
         git \
         libbenchmark-dev \
-	libboost1.65-all-dev
+	libboost1.65-all-dev \
         libnuma-dev \
         libbrotli-dev \
         libbz2-dev \
