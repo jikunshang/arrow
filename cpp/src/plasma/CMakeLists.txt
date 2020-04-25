@@ -77,24 +77,32 @@ if(NOT APPLE AND NOT MSVC)
       "-Wl,--no-undefined,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-add_arrow_lib(plasma
-              CMAKE_PACKAGE_NAME
-              Plasma
-              PKG_CONFIG_NAME
-              plasma
-              SOURCES
-              ${PLASMA_SRCS}
-              OUTPUTS
-              PLASMA_LIBRARIES
-              DEPENDENCIES
-              SHARED_LINK_FLAGS
-              ${PLASMA_SHARED_LINK_FLAGS}
-              SHARED_LINK_LIBS
-              ${PLASMA_LINK_LIBS}
-              STATIC_LINK_LIBS
-              ${PLASMA_STATIC_LINK_LIBS})
+# add_arrow_lib(plasma
+#               CMAKE_PACKAGE_NAME
+#               Plasma
+#               PKG_CONFIG_NAME
+#               plasma
+#               SOURCES
+#               ${PLASMA_SRCS}
+#               OUTPUTS
+#               PLASMA_LIBRARIES
+#               DEPENDENCIES
+#               SHARED_LINK_FLAGS
+#               ${PLASMA_SHARED_LINK_FLAGS}
+#               SHARED_LINK_LIBS
+#               ${PLASMA_LINK_LIBS}
+#               ${BOOST_SYSTEM_LIBRARY}
+#               STATIC_LINK_LIBS
+#               ${PLASMA_STATIC_LINK_LIBS})
+# 
+# add_dependencies(plasma ${PLASMA_LIBRARIES} ${BOOST_SYSTEM_LIBRARY})
 
-add_dependencies(plasma ${PLASMA_LIBRARIES})
+add_library(plasma_shared SHARED ${PLASMA_SRCS})
+target_link_libraries(plasma_shared ${BOOST_SYSTEM_LIBRARY} ${PLASMA_LINK_LIBS} )
+
+add_library(plasma_static STATIC ${PLASMA_SRCS})
+target_link_libraries(plasma_static ${BOOST_SYSTEM_LIBRARY} ${PLASMA_STATIC_LINK_LIBS} )
+
 
 foreach(LIB_TARGET ${PLASMA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
