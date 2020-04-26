@@ -44,7 +44,7 @@ RUN apt-get update -y -q && \
         git \
         g++ \
         gcc \
-        libboost-all-dev \
+        libnuma-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         libgtest-dev \
