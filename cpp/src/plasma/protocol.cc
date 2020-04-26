@@ -173,8 +173,9 @@ Status SendCreateRequest(const std::shared_ptr<ServerConnection>& client,
                          ObjectID object_id, bool evict_if_full, int64_t data_size,
                          int64_t metadata_size, int device_num) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaCreateRequest(fbb, fbb.CreateString(object_id.binary()),
-                                               data_size, metadata_size, device_num);
+  auto message =
+      fb::CreatePlasmaCreateRequest(fbb, fbb.CreateString(object_id.binary()),
+                                    evict_if_full, data_size, metadata_size, device_num);
   fbb.Finish(message);
   return PlasmaSend(client, MessageType::PlasmaCreateRequest, &fbb);
 }
