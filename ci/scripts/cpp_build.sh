@@ -42,7 +42,7 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
 fi
 
 # TO PASS CI, INSTALL libvmemcache
-if [[ "$OSTYPE" == "linux-gnu"]]; then
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
   git clone https://github.com/pmem/vmemcache.git /tmp/vmemcache
   pushd /tmp/vmemcache
     mkdir build && cd build
