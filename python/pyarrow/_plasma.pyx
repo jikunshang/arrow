@@ -815,7 +815,7 @@ cdef class PlasmaClient:
             result[object_id] = {
                 "data_size": entry.data_size,
                 "metadata_size": entry.metadata_size,
-                "ref_count": entry.ref_count,
+                "ref_count": 0, # Mock it
                 "create_time": entry.create_time,
                 "construct_duration": entry.construct_duration,
                 "state": state
