@@ -25,8 +25,6 @@ from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
 from libcpp.unordered_map cimport unordered_map
-from libcpp.mutex cimport mutex
-from libcpp.atomic cimport atomic
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.pycapsule cimport *
@@ -49,6 +47,12 @@ PLASMA_WAIT_TIMEOUT = 2 ** 30
 
 cdef extern from "plasma/common.h" nogil:
     cdef cppclass CCudaIpcPlaceholder" plasma::internal::CudaIpcPlaceholder":
+        pass
+
+    cdef cppclass CMutex" std::mutex":
+        pass
+
+    cdef cppclass CAtomicInt" std::atomic<int>":
         pass
 
     cdef cppclass CUniqueID" plasma::UniqueID":
@@ -80,13 +84,13 @@ cdef extern from "plasma/common.h" nogil:
         uint8_t* pointer
         int64_t data_size
         int64_t metadata_size
-        atomic[int] ref_count
+        CAtomicInt ref_count
         int64_t create_time
         int64_t construct_duration
         CObjectState state
         uint8_t* digest
         int8_t numaNodePostion
-        mutex mtx
+        CMutex mtx
         shared_ptr[CCudaIpcPlaceholder] ipc_handle
 
     ctypedef unordered_map[CUniqueID, unique_ptr[CObjectTableEntry]] \
